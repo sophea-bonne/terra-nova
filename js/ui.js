@@ -500,7 +500,12 @@
       Farm.sound.blip(660, 0.3, "sine", 0.06, 1320);
       openGoals();
     });
-    Farm.on("wind", () => Farm.toast("💨 A strong wind is blowing. Anything loose could go flying."));
+    Farm.on("wind", () => {
+      const st = G().state;
+      if (st.stats.windSeen) return; // the pop-up is only for the first gust
+      st.stats.windSeen = true;
+      Farm.toast("💨 A strong wind is blowing. Anything loose could go flying.");
+    });
     Farm.on("fabricLost", (i) => {
       Farm.toast(`💨 The wind tore up the landscape fabric on ${Farm.LOCATIONS[G().state.loc].bed} ${i + 1}, and the weeds are coming back.`);
       Farm.lesson("fabric");
