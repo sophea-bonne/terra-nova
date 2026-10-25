@@ -234,6 +234,7 @@
     if (pl.prep === "grass" && !pl.smothering) evap *= 0.7;
     if (frozen) evap *= 0.2;
     if (crop && !crop.dead) evap += 0.3 * Math.min(1, S.progress(pl) + 0.2);
+    if (crop && def.kind === "tree" && crop.age > 0.4) evap *= 0.65; // established trees shade the soil and drink from deeper down
     pl.moist -= evap * dt;
     const infil = S.infil(pl);
     if (st.weather.raining) {
@@ -314,10 +315,14 @@
     }
     pl.fert = Math.max(0, pl.fert - def.hunger * Math.min(1, rate) * dt * 0.5);
 
+    if (pl.moist < 12 && !pl.thirstAlert) { pl.thirstAlert = true; Farm.emit("thirstAlert", i); }
+    else if (pl.moist > 30) pl.thirstAlert = false;
     if (pl.moist < 8) {
       crop.stress += dt;
       if (crop.stress > 10) Farm.lesson("thirst");
-      if (crop.stress > 45) {
+      /* trees can last much longer than a field crop without a drink */
+      const patience = def.kind === "tree" ? (crop.age < 0.3 ? 120 : 240) : 45;
+      if (crop.stress > patience) {
         crop.dead = true;
         Farm.toast("🥀 A plant dried out completely. Click it to clear the plot, and give the next one a drink sooner.");
       }

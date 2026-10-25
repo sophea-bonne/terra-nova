@@ -500,6 +500,10 @@
       Farm.sound.blip(660, 0.3, "sine", 0.06, 1320);
       openGoals();
     });
+    Farm.on("thirstAlert", (i) => {
+      const pl = G().state.plots[i];
+      if (pl.crop && !pl.crop.dead) Farm.toast(`💧 Plot ${i + 1} is very thirsty. Fill your bucket at the hose and water it soon.`);
+    });
     Farm.on("weedAlert", (i) => {
       Farm.toast(`Uh oh! Weeds have taken over plot ${i + 1}. Nothing will grow there until you pull them. Click the plot.`);
       Farm.sound.blip(220, 0.3, "sawtooth", 0.03, 150);
