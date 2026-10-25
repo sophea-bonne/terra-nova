@@ -263,6 +263,10 @@
       const r = W.plots[j.plot];
       fx.text(r.x + r.w / 2, r.y + 20, "+" + Farm.money(value), "#2e7d32");
       Farm.sound.blip(660, 0.16, "sine", 0.06, 1100);
+      /* the harvest carries nutrients off the plot: refill with compost (or a big farm's usual re-tilling and fertilizer) */
+      const take = def.kind === "tree" ? 4 : def.id === "wheat" ? 10 : 16;
+      pl.fert = Math.max(0, pl.fert - take);
+      Farm.lesson("nutrients");
       if (def.kind === "tree") {
         pl.crop.fruit = 0;
         s.bin.raw = Math.min(12, s.bin.raw + 1);

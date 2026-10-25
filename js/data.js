@@ -207,6 +207,8 @@
     { id: "frozen", icon: "🧊", title: "Winter rest",
       hint: "Experience a frozen winter.",
       text: "Soil life slows down in the cold but doesn't disappear. Covered soil is insulated and stays a little warmer than bare ground, which is a good reason to keep a blanket of mulch on over winter." },
+    { id: "nutrients", icon: "🥕", title: "Harvests take nutrients with them", hint: "",
+      text: "Every crop you carry away takes minerals the soil had to give. Left alone, the soil runs down. On a big farm, people till and add fertilizer. In a garden you can give back what you took: compost, leaves and plant waste, so the soil stays fertile without any bagged fertilizer." },
     { id: "clumpy", icon: "🧱", title: "Dry soil repels water", hint: "Water the baked soil at the start.",
       text: "Hard, dry, clumpy soil is like a baked brick: water beads up and runs off instead of soaking in. Soil with lots of organic matter and crumbly structure drinks up water like a sponge." },
     { id: "fabric", icon: "🟫", title: "Landscape fabric", hint: "Lay landscape fabric.",
