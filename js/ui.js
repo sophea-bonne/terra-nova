@@ -326,10 +326,10 @@
     const cards = Farm.LESSONS.map((L) =>
       s.lessons[L.id]
         ? `<div class="note"><h4>${L.icon} ${L.title}</h4><p>${L.text}</p></div>`
-        : `<div class="note locked"><h4>🔒 ???</h4><p>${L.hint}</p></div>`
+        : `<div class="note locked"><h4>🔒 ???</h4><p>Not discovered yet. Keep exploring!</p></div>`
     ).join("");
     openModal(`<div class="mhead"><h2>📖 Field notes</h2><span>${found} of ${Farm.LESSONS.length} found</span><button class="x" data-close>✕</button></div>
-      <p class="small">You find a note when you try something for the first time. Everything here is how soil really works.</p>
+      <p class="small">A note appears the first time you come across something new. Everything here is how soil really works.</p>
       <div class="notes">${cards}</div>`);
   }
 
@@ -387,6 +387,46 @@
     dot.title = { saving: "Saving…", cloud: "Saved online", device: "Saved on this device", offline: "Online save unreachable; saved on this device" }[status] || "";
   }
 
+  /* ================= the first-time tour ================= */
+  function runIntro() {
+    const g = G(), s = g.state, loc = Farm.LOCATIONS[s.loc];
+    const r0 = Farm.world.plots[0], y0 = r0.y - 25;
+    const L = Farm.LESSONS.find((l) => l.id === "alive");
+    const steps = [
+      { title: `Welcome to your ${loc.bed === "bed" ? "back yard" : "farm"}`, text: loc.intro },
+      { title: `${L.icon} ${L.title}`, text: L.text },
+      { title: "The worm monitor", text: "Above every plot is a little worm with four dots. That's the soil-life monitor: the more dots are lit, the livelier and healthier the soil. Everything you do will raise it or lower it. Right now it's low. Watch it as you work.", hl: { x: r0.x + 160, y: y0, w: 52, h: 17 } },
+      { title: "Water and growth", text: "The blue bar is how much water the plot holds. Once something is planted, the green bar next to it shows how close it is to harvest. It turns gold and says Ready! when you can pick it.", hl: { x: r0.x, y: y0, w: 154, h: 17 } },
+      { title: "Your goal", text: `Bring the soil to about 55% life and harvest 4 crops. The 🎯 button up top tracks it, and the 📖 button collects the field notes you discover. Take your time. Nothing here is a race.` },
+    ];
+    const box = $("#intro"), prevSpeed = g.ui.speed;
+    g.setSpeed(0);
+    Farm.introActive = true;
+    let i = 0;
+    const draw = () => {
+      const st = steps[i];
+      Farm.view.highlight = st.hl || null;
+      box.innerHTML = `<h4>${st.title}</h4><p>${st.text}</p><div class="foot"><span>${steps.map((_, k) => (k === i ? "●" : "○")).join(" ")}</span><button class="btn small">${i === steps.length - 1 ? "Start farming" : "Next"}</button></div>`;
+      show(box, true);
+      box.querySelector("button").onclick = () => {
+        if (i === 1 && !s.lessons.alive) {
+          s.lessons.alive = 1; // the tour already showed this note in full
+          $("#notes-count").textContent = Object.keys(s.lessons).length;
+          g.markDirty();
+        }
+        if (++i >= steps.length) {
+          show(box, false);
+          Farm.view.highlight = null;
+          Farm.introActive = false;
+          g.setSpeed(prevSpeed || 1);
+          return;
+        }
+        draw();
+      };
+    };
+    draw();
+  }
+
   /* ================= wiring ================= */
   UI.init = function () {
     $("#name-form").onsubmit = onName;
@@ -415,14 +455,17 @@
       $$("#speed button").forEach((b) => b.classList.toggle("on", +b.dataset.speed === 1));
       G().save();
       const loc = Farm.LOCATIONS[s.loc];
-      if (s.day - loc.startDay < 3) {
+      if (!s.lessons.alive) runIntro();
+      else if (s.day - loc.startDay < 3) {
         Farm.toast(loc.intro);
         if (loc.kit === "none") Farm.toast("Try mulch, compost or weed control from the Soil care menu.");
       }
       else Farm.toast(`Welcome back, ${s.name}! Your farm kept all its progress.`);
     });
     Farm.on("stopped", () => {
-      ["#hud", "#toolbar", "#hint", "#tray", "#lesson"].forEach((q) => show($(q), false));
+      ["#hud", "#toolbar", "#hint", "#tray", "#lesson", "#intro"].forEach((q) => show($(q), false));
+      Farm.introActive = false;
+      Farm.view.highlight = null;
       $("#toasts").innerHTML = "";
       UI.hideTip();
       lessonQueue.length = 0;

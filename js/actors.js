@@ -349,7 +349,6 @@
       pl.life = Math.min(100, pl.life + 14);
       pl.tilth = Math.min(100, pl.tilth + 10);
       fx.spark(farmer.x, farmer.y - 40);
-      Farm.lesson("compost");
       Farm.sound.blip(380, 0.14, "sine", 0.05, 560);
     },
   };

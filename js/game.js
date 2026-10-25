@@ -23,7 +23,6 @@
     Game.hover = -1;
     Game.sinceSave = 0;
     Act().reset();
-    Farm.lesson("alive");
     Farm.emit("started");
   };
 

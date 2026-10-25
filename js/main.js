@@ -141,6 +141,18 @@
     if (live) Farm.actors.fx.draw(ctx);
     st.plots.forEach((_, i) => A.plotStrip(ctx, st, i, time));
 
+    const hl = Farm.view.highlight;
+    if (hl) {
+      const pulse = 3 + Math.sin(time * 6) * 2;
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 3;
+      ctx.shadowColor = "rgba(255,220,80,.95)";
+      ctx.shadowBlur = 14;
+      A.rr(ctx, hl.x - pulse, hl.y - pulse, hl.w + pulse * 2, hl.h + pulse * 2, 10);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
     weather(st, time);
   }
 
@@ -152,7 +164,7 @@
     return toWorld(e.clientX - r.left, e.clientY - r.top);
   }
   canvas.addEventListener("click", (e) => {
-    if (!Farm.game.state) return;
+    if (!Farm.game.state || Farm.introActive) return;
     Farm.ui.hideTip();
     const p = pos(e);
     Farm.game.click(p.x, p.y);
