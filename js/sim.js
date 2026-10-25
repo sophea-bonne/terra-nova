@@ -9,7 +9,17 @@
   const plots = [];
   for (let r = 0; r < 2; r++)
     for (let c = 0; c < 3; c++) plots.push({ x: 200 + c * 265, y: r ? 395 : 170, w: 230, h: 140 });
+  /* the back yard uses smaller raised beds with paths between them; the farms use big fields */
+  const LAYOUTS = {
+    yard: { w: 190, h: 120, xs: [270, 520, 770], ys: [200, 405] },
+    field: { w: 230, h: 140, xs: [200, 465, 730], ys: [170, 395] },
+  };
   Farm.world = {
+    layout(scale) {
+      const L = LAYOUTS[scale === "yard" ? "yard" : "field"];
+      plots.forEach((p, i) => Object.assign(p, { x: L.xs[i % 3], y: L.ys[Math.floor(i / 3)], w: L.w, h: L.h }));
+      Farm.emit("layout");
+    },
     plots,
     hose: { x: 92, y: 352, stand: { x: 150, y: 372 } },
     bin: { x: 100, y: 540, stand: { x: 158, y: 556 } },
@@ -114,6 +124,8 @@
   S.yearProg = (st) => (st.day % Farm.DAYS_PER_YEAR) / Farm.DAYS_PER_YEAR;
   S.dayOfSeason = (st) => Math.floor((st.day % Farm.DAYS_PER_SEASON) / Farm.TICKS_PER_DAY) + 1;
   S.frozen = (st) => Farm.LOCATIONS[st.loc].frost && S.season(st) === 3;
+  /* wet winter soil in a mild climate is soft enough to sow straight into the turf */
+  S.softSoil = (st, pl) => S.season(st) === 3 && !Farm.LOCATIONS[st.loc].frost && pl.moist >= 30;
   S.cost = (st, base) => Math.round(base * Farm.LOCATIONS[st.loc].costMul);
   S.matPrice = (st, kind) => S.cost(st, Farm.MATERIALS[kind].price);
   S.avgLife = (st) => st.plots.reduce((a, p) => a + p.life, 0) / st.plots.length;
@@ -150,6 +162,7 @@
   /* ---------- the daily simulation ---------- */
   const SEASON_HEAT = [1, 1.8, 1.1, 0.5];
   const WEED_SEASON = [1, 0.9, 0.5, 0.1];
+  const SMOTHER_RATE = [1.1, 0.6, 1.1, 1.2]; // by season; adds up to one year
   const RAIN_CHANCE = 0.02; // per day, times the place's seasonal multiplier
   const WIND_CHANCE = [0.012, 0.012, 0.03, 0.012];
 
@@ -245,7 +258,8 @@
 
     /* --- no-dig: grass dying under the mulch --- */
     if (pl.smothering) {
-      pl.smother += dt / 40;
+      /* a full year if it starts in summer: rotting is slow when it's hot and dry, faster when it's cool and damp */
+      pl.smother += (dt / Farm.DAYS_PER_YEAR) * SMOTHER_RATE[s] * (loc.frost && s === 3 ? 0.2 : 1) * (0.5 + 0.5 * Math.min(1, pl.moist / 40));
       if (pl.smother >= 1) {
         pl.smothering = false;
         pl.prep = "bare";

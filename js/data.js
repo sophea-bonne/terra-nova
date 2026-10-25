@@ -164,7 +164,7 @@
       text: "Tilling is fast, but it chops up the fungal threads and worm tunnels that hold soil together, and the fresh air makes microbes burn through the soil's organic matter. Bare, loosened soil also dries out and washes away more easily." },
     { id: "sheet", icon: "🍂", title: "Sheet mulching (no-dig)",
       hint: "Smother a grassy plot with mulch.",
-      text: "Instead of digging up grass, you can smother it. A thick layer of straw or chips blocks the light, the grass dies and rots in place, and worms drag the organic matter down for you. It is slower, but the soil gets richer instead of poorer." },
+      text: "Instead of digging up grass, you can smother it. A thick layer of straw or chips blocks the light, the grass dies and rots in place, and worms drag the organic matter down for you. It is slow (about a year if you start in summer, faster in a wet winter), but the soil gets richer instead of poorer." },
     { id: "mulch", icon: "🧣", title: "Mulch is a blanket",
       hint: "Mulch a plot that is already prepared.",
       text: "Mulch shades the soil so less water evaporates, keeps weed seeds from getting light, softens the impact of rain and keeps the soil temperature steadier. As it rots it feeds the soil life, so you are watering and fertilizing at once." },

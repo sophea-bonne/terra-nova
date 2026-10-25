@@ -141,10 +141,10 @@
     check(j, early) {
       const s = st(), pl = s.plots[j.plot], def = Farm.CROPS[j.crop];
       if (pl.crop) return "Something is already growing here.";
-      if (pl.prep === "grass" && !(early && pendingTill(j.plot)))
+      if (pl.prep === "grass" && !(early && pendingTill(j.plot)) && !Farm.sim.softSoil(s, pl))
         return pl.smothering
-          ? "The grass under the mulch is still dying back. A little patience!"
-          : "This patch is still turf. Till it with the tractor, or smother it with mulch first.";
+          ? "The grass under the mulch is still dying back. It takes about a year in summer, so be patient."
+          : "This patch is still turf. Till it, smother it with mulch, or wait for a wet winter when the soil is soft enough to sow into.";
       if (Farm.sim.frozen(s)) return "The ground is frozen solid. Wait for spring.";
       if (s.money < cropCost(def)) return `You need ${Farm.money(cropCost(def))} for ${def.name.toLowerCase()}.`;
       return null;
@@ -164,6 +164,7 @@
       if (pl.crop || s.money < cropCost(def)) return;
       s.money -= cropCost(def);
       pl.crop = { type: j.crop, p: 0, age: 0, fruit: 0, stress: 0, fed: false, dead: false };
+      if (pl.prep === "grass") { pl.prep = "bare"; pl.smothering = false; pl.smother = 0; } // sown straight into soft, wet turf
       pl.weeds *= 0.5;
       Farm.sound.blip(420, 0.12, "triangle", 0.05, 640);
       if (def.kind === "tree") Farm.lesson("perennial");
@@ -572,7 +573,7 @@
   function buildTill(job) {
     const r = W.plots[job.plot];
     const x0 = r.x - 24, x1 = r.x + r.w + 56;
-    const y = r.y + 80; // one pass straight through the middle: a small plot needs no more
+    const y = r.y + r.h * 0.57; // one pass straight through the middle: a small plot needs no more
     return [{ x: x0, y }, { x: x1, y, till: true }];
   }
 

@@ -161,7 +161,7 @@
     const g = G(), u = g.ui, s = g.state;
     let t = "";
     if (u.tool === "hand") t = "Click anywhere to walk. Click ripe plants to harvest, weedy plots to pull weeds.";
-    else if (u.tool === "seed") t = u.seed ? `Sowing ${Farm.CROPS[u.seed].name.toLowerCase()}: click a plot with bare soil.` : "Pick something to sow.";
+    else if (u.tool === "seed") t = u.seed ? `Sowing ${Farm.CROPS[u.seed].name.toLowerCase()}: click a plot with bare soil. Click the seed again to put it away.` : "Pick a seed to sow, or click plots to harvest, weed and clear them.";
     else if (u.tool === "water") t = u.waterMode === "drip" ? "Click a plot to lay a drip line." : `Bucket ${s.bucket}/${s.bucketCap}: click the hose reel to fill up, then click a plot to water it.`;
     else if (u.tool === "soil") t = `${Farm.MATERIALS[u.soil].name}: click a plot to spread it.`;
     else if (u.tool === "tractor") t = "Click each plot you'd like tilled. Click the tractor again to park it.";
@@ -208,7 +208,7 @@
       html = `<div class="card wide"><div class="ic">🚜</div><b>Tractor</b><small>Click each plot you want tilled and the tractor will drive over, one after another.</small><button class="buy" data-park="1">Park the tractor</button></div>`;
     }
     tray.innerHTML = html;
-    $$("[data-seed]", tray).forEach((c) => (c.onclick = () => { g.ui.seed = c.dataset.seed; Farm.sound.blip(500, 0.06, "triangle", 0.04); }));
+    $$("[data-seed]", tray).forEach((c) => (c.onclick = () => { g.ui.seed = g.ui.seed === c.dataset.seed ? null : c.dataset.seed; Farm.sound.blip(500, 0.06, "triangle", 0.04); }));
     $$("[data-wm]", tray).forEach((c) => (c.onclick = () => { g.ui.waterMode = c.dataset.wm; }));
     $$("[data-soil]", tray).forEach((c) => (c.onclick = () => { g.ui.soil = c.dataset.soil; }));
     $$("[data-buy]", tray).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); g.buy(b.dataset.buy); }));
@@ -357,7 +357,13 @@
     openModal(`<div class="mhead"><h2>Levels</h2><button class="x" data-close>✕</button></div>
       <p class="small">Starting a level begins a fresh farm there and replaces this one. Your field notes stay.</p><div id="lv-grid" class="levels"></div>`, () => {
       renderLevels($("#lv-grid"), s.progress, (id) => {
-        if (id === s.loc || window.confirm("Start a fresh farm in " + Farm.LOCATIONS[id].name + "? Your current farm will be replaced.")) { closeModal(); g.travel(id); }
+        /* an in-page question (the browser's confirm() box can be blocked inside some apps) */
+        openModal(`<div class="mhead"><h2>Start ${esc(Farm.LOCATIONS[id].name)}?</h2></div>
+          <p class="lead">This begins a fresh farm there and replaces your current one. Your field notes and unlocked levels stay.</p>
+          <div class="menu"><button class="btn" id="lv-yes">Yes, start it</button><button class="btn alt" id="lv-no">Cancel</button></div>`, () => {
+          $("#lv-yes").onclick = () => { closeModal(); g.travel(id); };
+          $("#lv-no").onclick = openLevels;
+        });
       });
     });
   }

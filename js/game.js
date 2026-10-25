@@ -19,7 +19,8 @@
   Game.start = function (state) {
     Game.state = Farm.sim.repair(state);
     const loc = Farm.LOCATIONS[Game.state.loc];
-    Game.ui = { tool: "hand", seed: loc.crops[0], waterMode: "bucket", soil: "straw", speed: 1 };
+    Farm.world.layout(loc.scale);
+    Game.ui = { tool: "hand", seed: null, waterMode: "bucket", soil: "straw", speed: 1 };
     Game.hover = -1;
     Game.sinceSave = 0;
     Act().reset();
@@ -100,7 +101,9 @@
 
   function jobFor(i, wx) {
     const s = Game.state, ui = Game.ui, pl = s.plots[i], S = Farm.sim;
-    switch (ui.tool) {
+    let tool = ui.tool;
+    if (tool === "seed" && !ui.seed) tool = "hand"; // no seed picked: clicking a plot clears, weeds or harvests it
+    switch (tool) {
       case "hand":
         if (S.isRipe(pl)) return { type: "harvest", plot: i, x: wx };
         if (pl.crop && pl.crop.dead) return { type: "clear", plot: i, x: wx };

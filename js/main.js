@@ -78,6 +78,7 @@
 
   /* ---------- drawing the world ---------- */
   const slotCache = {};
+  Farm.on("layout", () => { for (const k in slotCache) delete slotCache[k]; });
   function slotsFor(i, type) {
     const k = i + ":" + type;
     return slotCache[k] || (slotCache[k] = Farm.sim.slots(i, type));
@@ -95,6 +96,8 @@
     A.ground(ctx, st, vis);
     A.treeline(ctx, st, vis);
     A.fence(ctx, vis);
+    const yardMap = Farm.LOCATIONS[st.loc].scale === "yard";
+    if (yardMap) A.yardPaths(ctx, st);
 
     const queued = live ? Farm.actors.queuedPlots() : new Set();
     st.plots.forEach((_, i) => {
@@ -111,12 +114,18 @@
     });
     const loc = Farm.LOCATIONS[st.loc];
     const yard = loc.kit === "rototiller";
-    ents.push({ y: W.barn.y, f: () => A.barn(ctx, W.barn.x, W.barn.y, loc.scale === "yard" ? 0.62 : 1) });
-    ents.push({ y: 346, f: () => { A.hay(ctx, 1230, 336); A.hay(ctx, 1198, 350); } });
+    if (yard) {
+      ents.push({ y: W.barn.y, f: () => A.house(ctx, W.barn.x - 40, W.barn.y) });
+      ents.push({ y: 612, f: () => A.hedge(ctx, st, 20, 1260, 618) });
+      ents.push({ y: 470, f: () => { A.bench(ctx, 1030, 570); A.pot(ctx, 1190, 580, "#f6c443"); A.pot(ctx, 1220, 300, "#e9607a"); A.pot(ctx, 1000, 285, "#e9607a"); } });
+    } else {
+      ents.push({ y: W.barn.y, f: () => A.barn(ctx, W.barn.x, W.barn.y, 1) });
+      ents.push({ y: 346, f: () => { A.hay(ctx, 1230, 336); A.hay(ctx, 1198, 350); } });
+    }
     ents.push({ y: W.hose.y, f: () => A.hose(ctx, W.hose.x, W.hose.y, live && st.bucket === 0 && g.ui.tool === "water", time) });
     ents.push({ y: W.bin.y, f: () => A.bin(ctx, W.bin.x, W.bin.y, st.bin, time) });
     ents.push({ y: W.sign.y, f: () => A.sign(ctx, W.sign.x, W.sign.y, st.name) });
-    TREES.forEach(([x, y, r]) => ents.push({ y, f: () => A.blobTree(ctx, x, y - r, r, colors.leaf, 0.5) }));
+    if (!yard) TREES.forEach(([x, y, r]) => ents.push({ y, f: () => A.blobTree(ctx, x, y - r, r, colors.leaf, 0.5) }));
 
     const farmer = live ? Farm.actors.farmer : demoFarmer;
     const tractor = live ? Farm.actors.tractor : demoTractor;

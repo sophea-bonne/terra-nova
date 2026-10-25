@@ -41,6 +41,7 @@
 
   /* ---------- per-plot random bits (not saved) ---------- */
   const VIS = [];
+  Farm.on("layout", () => (VIS.length = 0));
   function visual(i) {
     if (VIS[i]) return VIS[i];
     const r = Farm.world.plots[i];
@@ -165,6 +166,131 @@
     }
   };
 
+  /* ---------- the back yard: flagstone paths, hedges, a little house ---------- */
+  A.yardPaths = function (ctx, st) {
+    const P = Farm.world.plots;
+    const rects = [];
+    const gapY = P[0].y + P[0].h + 14, gapH = P[3].y - gapY - 14;
+    rects.push([150, gapY, 1010, gapH]); // main path across the yard, out to the house
+    for (const i of [0, 1]) rects.push([P[i].x + P[i].w + 4, P[0].y - 10, P[i + 1].x - P[i].x - P[i].w - 8, P[5].y + P[5].h - P[0].y + 20]); // paths between bed columns
+    rects.push([1040, 262, 140, gapY - 262 + gapH]); // up to the front door
+    const rnd = Farm.rng(31);
+    for (const [x, y, w, h] of rects) {
+      ctx.fillStyle = "rgba(60,48,30,.2)";
+      rr(ctx, x + 2, y + 3, w, h, 8);
+      ctx.fill();
+      ctx.fillStyle = "#c9bc9c";
+      rr(ctx, x, y, w, h, 8);
+      ctx.fill();
+      ctx.save();
+      rr(ctx, x, y, w, h, 8);
+      ctx.clip();
+      for (let yy = y + 3; yy < y + h; yy += 22)
+        for (let xx = x + 3 + ((yy / 22) % 2) * 14; xx < x + w; xx += 34) {
+          const sw = 22 + rnd() * 8, sh = 15 + rnd() * 3, tone = 0.92 + rnd() * 0.14;
+          ctx.fillStyle = rgb([190, 178, 152], tone);
+          rr(ctx, xx, yy, sw, sh, 5);
+          ctx.fill();
+          ctx.fillStyle = "rgba(255,255,255,.18)";
+          ctx.fillRect(xx + 3, yy + 1.5, sw - 6, 2);
+        }
+      ctx.restore();
+    }
+  };
+
+  A.hedge = function (ctx, st, x0, x1, y) {
+    const c = A.colors(st);
+    for (let x = x0; x < x1; x += 26) {
+      const r = 20 + Math.sin(x * 0.7) * 3;
+      const g = ctx.createRadialGradient(x - 6, y - 12, 2, x, y - 4, r);
+      g.addColorStop(0, rgb(c.leaf, 1.25));
+      g.addColorStop(1, rgb(c.leaf, 0.65));
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y - 8, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  };
+
+  A.house = function (ctx, x, y) {
+    ctx.save();
+    ctx.translate(x, y);
+    ell(ctx, 0, 6, 140, 12, "rgba(20,35,8,.25)");
+    const wall = ctx.createLinearGradient(-100, 0, 100, 0);
+    wall.addColorStop(0, "#f3e4c4");
+    wall.addColorStop(1, "#e2cfa6");
+    ctx.fillStyle = wall;
+    ctx.fillRect(-100, -104, 200, 104);
+    ctx.fillStyle = "#cdb98f";
+    ctx.fillRect(-100, -12, 200, 12);
+    /* roof and chimney */
+    ctx.fillStyle = "#8a5a46";
+    ctx.fillRect(58, -170, 20, 40);
+    ctx.fillStyle = "#6a3f33";
+    ctx.beginPath();
+    ctx.moveTo(-118, -100); ctx.lineTo(0, -168); ctx.lineTo(118, -100);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#7c4a3b";
+    ctx.beginPath();
+    ctx.moveTo(-100, -100); ctx.lineTo(0, -156); ctx.lineTo(100, -100);
+    ctx.closePath();
+    ctx.fill();
+    /* door and windows */
+    ctx.fillStyle = "#5c3a28";
+    rr(ctx, -16, -68, 32, 68, 4);
+    ctx.fill();
+    ell(ctx, 9, -34, 2.4, 2.4, "#f2d467");
+    for (const wx of [-68, 46]) {
+      ctx.fillStyle = "#b8e0f2";
+      rr(ctx, wx, -78, 38, 38, 3);
+      ctx.fill();
+      ctx.strokeStyle = "#fff8ea";
+      ctx.lineWidth = 3.5;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(wx + 19, -78); ctx.lineTo(wx + 19, -40);
+      ctx.moveTo(wx, -59); ctx.lineTo(wx + 38, -59);
+      ctx.stroke();
+    }
+    /* flower boxes */
+    for (const wx of [-68, 46]) {
+      ctx.fillStyle = "#8a6240";
+      ctx.fillRect(wx - 2, -40, 42, 8);
+      for (let k = 0; k < 5; k++) ell(ctx, wx + 4 + k * 8, -43, 3.4, 3.4, ["#e9607a", "#f6c443", "#fff", "#e9607a", "#f6c443"][k]);
+    }
+    ctx.restore();
+  };
+
+  A.pot = function (ctx, x, y, col) {
+    ell(ctx, x, y + 2, 11, 4, "rgba(20,35,8,.25)");
+    ctx.fillStyle = "#b5623c";
+    ctx.beginPath();
+    ctx.moveTo(x - 9, y - 16); ctx.lineTo(x + 9, y - 16); ctx.lineTo(x + 6, y); ctx.lineTo(x - 6, y);
+    ctx.closePath();
+    ctx.fill();
+    ell(ctx, x, y - 20, 11, 8, "#5f9a3a");
+    for (const [dx, dy] of [[-5, -24], [3, -26], [7, -21], [-2, -19]]) ell(ctx, x + dx, y + dy, 3.2, 3.2, col);
+  };
+
+  A.bench = function (ctx, x, y) {
+    ell(ctx, x, y + 2, 40, 6, "rgba(20,35,8,.25)");
+    ctx.fillStyle = "#6e4f2e";
+    ctx.fillRect(x - 36, y - 14, 5, 16);
+    ctx.fillRect(x + 31, y - 14, 5, 16);
+    for (const dy of [0, 6]) {
+      const g = ctx.createLinearGradient(0, y - 20 + dy, 0, y - 15 + dy);
+      g.addColorStop(0, "#c49a64");
+      g.addColorStop(1, "#9a7448");
+      ctx.fillStyle = g;
+      rr(ctx, x - 40, y - 20 + dy, 80, 5, 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = "#9a7448";
+    ctx.fillRect(x - 40, y - 38, 80, 5);
+    ctx.fillRect(x - 40, y - 30, 80, 5);
+  };
+
   /* ---------- the fields ---------- */
   A.plotGround = function (ctx, st, i, time, hover, queued) {
     const pl = st.plots[i], r = Farm.world.plots[i], v = visual(i);
@@ -176,26 +302,36 @@
     const isGrass = pl.prep === "grass";
     const grassTop = rgb(mix(cols.grass, [96, 150, 60], 0.15), 1.02);
     const depth = 11;
+    const yard = loc.scale === "yard";
+    const R = yard ? 4 : 14;
 
-    /* a slab with thickness so it feels solid */
+    /* a slab with thickness so it feels solid (a raised wooden bed in the back yard) */
     ctx.fillStyle = "rgba(20,35,8,.22)";
-    rr(ctx, r.x + 5, r.y + depth + 6, r.w, r.h, 14);
+    rr(ctx, r.x + 5, r.y + depth + 6, r.w, r.h, R);
     ctx.fill();
-    ctx.fillStyle = side;
-    rr(ctx, r.x, r.y + depth, r.w, r.h, 14);
+    ctx.fillStyle = yard ? "#8a6240" : side;
+    rr(ctx, r.x, r.y + depth, r.w, r.h, R);
     ctx.fill();
+    if (yard) {
+      ctx.strokeStyle = "rgba(50,28,10,.45)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(r.x + 2, r.y + r.h + depth * 0.55);
+      ctx.lineTo(r.x + r.w - 2, r.y + r.h + depth * 0.55);
+      ctx.stroke();
+    }
     let top = isGrass ? grassTop : soil;
     if (isGrass && pl.smothering) top = rgb(mix(cols.grass, loc.soilColor, pl.smother * 0.5), 1);
     const tg = ctx.createLinearGradient(0, r.y, 0, r.y + r.h);
     tg.addColorStop(0, isGrass && !pl.smothering ? rgb(mix(cols.grass, [255, 255, 200], 0.12), 1) : "rgba(255,255,255,0)");
     ctx.fillStyle = top;
-    rr(ctx, r.x, r.y, r.w, r.h, 14);
+    rr(ctx, r.x, r.y, r.w, r.h, R);
     ctx.fill();
     ctx.fillStyle = tg;
     ctx.fill();
 
     ctx.save();
-    rr(ctx, r.x, r.y, r.w, r.h, 14);
+    rr(ctx, r.x, r.y, r.w, r.h, R);
     ctx.clip();
 
     /* grass blades on unprepared turf */
@@ -355,6 +491,26 @@
     }
     ctx.restore();
 
+    if (yard) {
+      /* the timber frame of the raised bed */
+      ctx.strokeStyle = "#b58a58";
+      ctx.lineWidth = 8;
+      rr(ctx, r.x + 1, r.y + 1, r.w - 2, r.h - 2, 3);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(60,35,15,.55)";
+      ctx.lineWidth = 1.2;
+      rr(ctx, r.x + 5, r.y + 5, r.w - 10, r.h - 10, 2);
+      ctx.stroke();
+      rr(ctx, r.x - 3, r.y - 3, r.w + 6, r.h + 6, 4);
+      ctx.stroke();
+      for (const [px, py] of [[r.x, r.y], [r.x + r.w, r.y], [r.x, r.y + r.h], [r.x + r.w, r.y + r.h]]) {
+        ctx.fillStyle = "#8a6240";
+        ctx.fillRect(px - 5, py - 5, 10, 10);
+        ctx.fillStyle = "rgba(255,230,190,.35)";
+        ctx.fillRect(px - 5, py - 5, 10, 3);
+      }
+    }
+
     if (hover) {
       ctx.setLineDash([9, 6]);
       ctx.lineWidth = 3;
@@ -420,7 +576,7 @@
     icon(ctx, x + 10, y + 8.6, 5.2, color);
     if (label) {
       ctx.fillStyle = "#6a5a35";
-      ctx.font = "bold 10px 'Trebuchet MS', sans-serif";
+      ctx.font = `bold ${w < 70 ? 9 : 10}px 'Trebuchet MS', sans-serif`;
       ctx.textBaseline = "middle";
       ctx.fillText(label, x + 20, y + 9);
     } else {
@@ -439,38 +595,39 @@
     const pl = st.plots[i], r = Farm.world.plots[i];
     const S = Farm.sim;
     const y = r.y - 25;
+    const k = r.w / 230; // beds are narrower in the back yard
     const ripe = S.isRipe(pl);
     const grass = pl.prep === "grass" && !pl.smothering;
     /* water */
     if (!grass || pl.moist > 0) {
       const low = pl.moist < 20 && (pl.crop || pl.smothering);
-      pill(ctx, r.x, y, 70, iconDrop, pl.moist / 100, low ? "#e0833a" : "#3c9bea", null, low && Math.sin(time * 6) > 0);
+      pill(ctx, r.x, y, 70 * k, iconDrop, pl.moist / 100, low ? "#e0833a" : "#3c9bea", null, low && Math.sin(time * 6) > 0);
     }
     /* growth / progress */
-    const gx = r.x + 76;
+    const gx = r.x + 76 * k;
     if (pl.crop && !pl.crop.dead) {
       const f = S.progress(pl);
-      pill(ctx, gx, y, 78, iconSprout, f, ripe ? "#e5a91d" : "#5fa83a", ripe ? "Ready!" : null, ripe && Math.sin(time * 5) > 0);
+      pill(ctx, gx, y, 78 * k, iconSprout, f, ripe ? "#e5a91d" : "#5fa83a", ripe ? "Ready!" : null, ripe && Math.sin(time * 5) > 0);
     } else if (pl.crop && pl.crop.dead) {
-      pill(ctx, gx, y, 78, iconSprout, 0, "#a08060", "Withered");
+      pill(ctx, gx, y, 78 * k, iconSprout, 0, "#a08060", "Withered");
     } else if (pl.smothering) {
-      pill(ctx, gx, y, 78, iconSprout, pl.smother, "#a77d3c", null);
+      pill(ctx, gx, y, 78 * k, iconSprout, pl.smother, "#a77d3c", null);
     } else if (grass) {
-      pill(ctx, gx, y, 78, iconSprout, 0, "#7fae55", "Unprepared");
+      pill(ctx, gx, y, 78 * k, iconSprout, 0, "#7fae55", "Unprepared");
     } else {
-      pill(ctx, gx, y, 78, iconSprout, 0, "#b99b6a", "Ready to sow");
+      pill(ctx, gx, y, 78 * k, iconSprout, 0, "#b99b6a", "Ready to sow");
     }
     /* soil life */
-    const lx = r.x + 160;
+    const lx = r.x + 160 * k;
     ctx.fillStyle = "rgba(255,252,238,.9)";
-    rr(ctx, lx, y, 52, 17, 8.5);
+    rr(ctx, lx, y, 52 * k, 17, 8.5);
     ctx.fill();
     ctx.strokeStyle = "rgba(120,90,40,.25)";
     ctx.lineWidth = 1;
     ctx.stroke();
     iconWorm(ctx, lx + 11, y + 8.8, 5.5, "#d9837f");
     const n = clamp(Math.round(pl.life / 25), 0, 4);
-    for (let k = 0; k < 4; k++) ell(ctx, lx + 26 + k * 6.4, y + 8.6, 2.3, 2.3, k < n ? "#6f9d3c" : "rgba(90,70,30,.22)");
+    for (let q = 0; q < 4; q++) ell(ctx, lx + (26 + q * 6.4) * (k > 0.9 ? 1 : 0.9), y + 8.6, 2.3, 2.3, q < n ? "#6f9d3c" : "rgba(90,70,30,.22)");
     /* weeds warning */
     if (pl.weeds > 35) {
       ctx.fillStyle = "rgba(255,246,214,.95)";
