@@ -73,17 +73,19 @@
       Farm.toast("⛰️ These slopes are far too steep for a tractor. It would tip over. You'll have to work the soil another way.");
       return;
     }
+    const T = A.tractor, f = A.farmer;
     if (tool !== "tractor") {
-      const f = A.farmer;
-      f.queue = f.queue.filter((j) => j.type !== "mount");
-      if (f.cur && f.cur.job.type === "mount" && f.cur.stage === "walk") f.cur = null;
-      if (A.isMounted() || A.tractor.queue.length || A.tractor.cur) A.dismount();
-    }
-    if (tool === "tractor" && ui.tool !== "tractor") {
-      if (!A.isMounted()) {
-        A.stopQueue();
-        A.enqueue({ type: "mount" });
+      /* leaving the tractor tool doesn't cancel the tilling you lined up: she parks when the queue is done */
+      const pending = T.queue.length || T.cur;
+      if (!pending) {
+        f.queue = f.queue.filter((j) => j.type !== "mount");
+        if (f.cur && f.cur.job.type === "mount" && f.cur.stage === "walk") f.cur = null;
       }
+      if (A.isMounted() || pending) T.parking = true;
+    } else {
+      T.parking = false;
+      const mounting = f.queue.some((j) => j.type === "mount") || (f.cur && f.cur.job.type === "mount");
+      if (!A.isMounted() && !mounting) A.enqueue({ type: "mount" });
     }
     ui.tool = tool;
     Farm.emit("toolchange", tool);
@@ -93,7 +95,7 @@
     if (Game.ui.tool === "tractor") Game.setTool("hand");
   });
   Farm.on("mounted", () => {
-    if (Game.ui.tool !== "tractor") return Act().dismount(); // she changed her mind while climbing up
+    if (Game.ui.tool !== "tractor") return (Act().tractor.parking = true); // she switched tools while climbing up
     Farm.toast("🚜 Tractor ready. Click each plot you want tilled.");
   });
 
@@ -126,7 +128,7 @@
     if (Game.ui.tool === "tractor") return Act().tillCheck(i) ? "bad" : "ok";
     const job = jobFor(i, null);
     if (!job) return "neutral";
-    return Act().check(job) ? "bad" : "ok";
+    return Act().check(job, true) ? "bad" : "ok";
   };
 
   /* ---------- clicks (world coordinates) ---------- */
@@ -153,6 +155,7 @@
     Farm.sound.blip(0, 0.001, "sine", 0.0001); // wakes the audio context on first tap
     if (Game.hitTractor(x, y)) {
       if (Farm.LOCATIONS[s.loc].kit === "none") return Game.setTool("tractor");
+      if (Game.ui.tool === "tractor") A.dismount(); // clicking the tractor itself cancels the rest of the queue and parks it
       Game.setTool(Game.ui.tool === "tractor" ? "hand" : "tractor");
       return;
     }
@@ -161,16 +164,16 @@
       if (Game.ui.tool === "tractor") return A.queueTill(i);
       const job = jobFor(i, x);
       if (!job) return Farm.emit("inspect", i);
-      const err = A.check(job);
+      const err = A.check(job, true);
       if (err) return Farm.toast(err);
       return A.enqueue(job);
     }
     if (Game.hitHose(x, y)) {
-      if (A.isMounted()) return Farm.toast("Hop off the tractor first (click it to park).");
+      Game.ui.waterMode = "bucket"; // heading to the hose means you're after water
+      Game.setTool("water");
       return A.enqueue({ type: "fill" });
     }
     if (Game.hitBin(x, y)) {
-      if (A.isMounted()) return Farm.toast("Hop off the tractor first (click it to park).");
       const err = A.check({ type: "bin" });
       if (err) return Farm.toast(err);
       return A.enqueue({ type: "bin" });

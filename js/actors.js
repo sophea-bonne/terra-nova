@@ -138,10 +138,10 @@
 
   J.plant = {
     pose: "plant", face: "up", dur: 2.6, stand: plotStand,
-    check(j) {
+    check(j, early) {
       const s = st(), pl = s.plots[j.plot], def = Farm.CROPS[j.crop];
       if (pl.crop) return "Something is already growing here.";
-      if (pl.prep === "grass")
+      if (pl.prep === "grass" && !(early && pendingTill(j.plot)))
         return pl.smothering
           ? "The grass under the mulch is still dying back. A little patience!"
           : "This patch is still turf. Till it with the tractor, or smother it with mulch first.";
@@ -512,7 +512,9 @@
     return set;
   };
   Act.currentJobType = () => (farmer.cur ? farmer.cur.job.type : null);
-  Act.check = (job) => (J[job.type] && J[job.type].check ? J[job.type].check(job) : null);
+  Act.check = (job, early) => (J[job.type] && J[job.type].check ? J[job.type].check(job, early) : null);
+  /* a plot lined up for the tractor counts as "about to be bare" when you queue seeds for it */
+  const pendingTill = (i) => tractor.queue.some((q) => q.plot === i) || (tractor.cur && tractor.cur.job.plot === i);
 
   function updateFarmer(dt) {
     if (farmer.mounted) {
