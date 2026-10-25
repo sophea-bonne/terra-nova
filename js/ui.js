@@ -145,6 +145,7 @@
       $("#cal-season").textContent = Farm.SEASONS[v];
       document.body.dataset.season = v;
     });
+    setIf("day", S.dayOfSeason(s), (v) => ($("#cal-day").textContent = v));
     setIf("year", S.year(s), (v) => ($("#cal-year").textContent = v));
     $("#cal-marker").style.left = S.yearProg(s) * 100 + "%";
     if (!lastSig.gt || performance.now() - lastSig.gt > 1000) {

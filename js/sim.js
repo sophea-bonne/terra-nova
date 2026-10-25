@@ -112,7 +112,7 @@
   S.seasonProg = (st) => (st.day % Farm.DAYS_PER_SEASON) / Farm.DAYS_PER_SEASON;
   S.year = (st) => Math.floor(st.day / Farm.DAYS_PER_YEAR) + 1;
   S.yearProg = (st) => (st.day % Farm.DAYS_PER_YEAR) / Farm.DAYS_PER_YEAR;
-  S.dayOfSeason = (st) => Math.floor(st.day % Farm.DAYS_PER_SEASON) + 1;
+  S.dayOfSeason = (st) => Math.floor((st.day % Farm.DAYS_PER_SEASON) / Farm.TICKS_PER_DAY) + 1;
   S.frozen = (st) => Farm.LOCATIONS[st.loc].frost && S.season(st) === 3;
   S.cost = (st, base) => Math.round(base * Farm.LOCATIONS[st.loc].costMul);
   S.matPrice = (st, kind) => S.cost(st, Farm.MATERIALS[kind].price);

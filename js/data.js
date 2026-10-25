@@ -4,8 +4,11 @@
 
   Farm.SEASONS = ["Spring", "Summer", "Autumn", "Winter"];
   Farm.SEASON_ICONS = ["🌸", "☀️", "🍂", "❄️"];
-  Farm.DAYS_PER_SEASON = 200; // one game day = one real second at 1× speed
-  Farm.DAYS_PER_YEAR = 800;
+  /* The simulation counts in "ticks" (one tick = one real second at 1× speed; growth rates are tuned in ticks).
+     The calendar shows real-world days: 3 ticks = 1 day, 365 days a year, four seasons of 91.25 days. */
+  Farm.TICKS_PER_DAY = 3;
+  Farm.DAYS_PER_SEASON = (365 / 4) * 3; // in ticks
+  Farm.DAYS_PER_YEAR = 365 * 3;
 
   Farm.LEVELS = ["sunnyvale", "rainbow", "geneva", "farfa"];
 
@@ -21,7 +24,7 @@
       soilName: "Silty clay",
       soilNote: "Rich and fertile, and it holds water for a long time. But dry clay bakes into hard clods, and it won't soak up water until it has been softened up.",
       fert: 58, life: 28, tilth: 12, moist: 4, heat: 1.0, frost: false, dryGrass: true, wind: 0.6, hills: false,
-      kit: "rototiller", costMul: 1, valueMul: 1, money: 260, startDay: 215, labor: 1, pour: 48,
+      kit: "rototiller", costMul: 1, valueMul: 1, money: 260, startDay: 500, labor: 1, pour: 48,
       rain: [0, 0, 0, 1.6],
       fit: { wheat: 1.0, cannabis: 1.0, avocado: 0.8, citrus: 1.05, apple: 1.0, olive: 1.0 },
       soilColor: [112, 84, 62],
@@ -36,7 +39,7 @@
       soilName: "Sandy loam from weathered granite",
       soilNote: "Drains very quickly, holds few nutrients and bakes in the sun. The strong autumn winds here will carry off anything that isn't weighed down.",
       fert: 14, life: 10, tilth: 60, moist: 3, heat: 1.35, frost: false, dryGrass: true, wind: 2.4, hills: true,
-      kit: "none", costMul: 5, valueMul: 5, money: 1800, startDay: 215, labor: 4.5, pour: 14,
+      kit: "none", costMul: 5, valueMul: 5, money: 1800, startDay: 500, labor: 4.5, pour: 14,
       rain: [0, 0, 0, 1.0],
       fit: { wheat: 0.75, cannabis: 0.9, avocado: 1.1, citrus: 1.0, apple: 0.7, olive: 1.0 },
       soilColor: [214, 178, 128],
