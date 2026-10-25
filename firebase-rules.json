@@ -1,0 +1,18 @@
+{
+  "rules": {
+    "saves": {
+      "$name": {
+        ".read": true,
+        ".write": true,
+        ".validate": "$name.matches(/^[a-z0-9-]{1,30}$/) && newData.hasChildren(['name', 'plots', 'loc'])"
+      }
+    },
+    "neighbours": {
+      ".read": true,
+      "$name": {
+        ".write": true,
+        ".validate": "$name.matches(/^[a-z0-9-]{1,30}$/) && newData.hasChildren(['name', 'loc'])"
+      }
+    }
+  }
+}

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Terra Nova — a slow little farm</title>
+<meta name="description" content="A relaxing farming game about soil, mulch and compost.">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<!-- ============ top bar ============ -->
+<div id="hud" class="hidden">
+  <div class="hud-group">
+    <div class="pill" id="hud-name"></div>
+    <div class="pill coins" title="Your coins">🪙 <b id="hud-coins">0</b></div>
+  </div>
+  <div id="calendar" title="One full year: spring, summer, autumn, winter">
+    <div class="cal-track">
+      <span class="seg spring">🌸</span><span class="seg summer">☀️</span><span class="seg autumn">🍂</span><span class="seg winter">❄️</span>
+      <i id="cal-marker"></i>
+    </div>
+    <div class="cal-label"><b id="cal-season">Spring</b> · Year <span id="cal-year">1</span></div>
+  </div>
+  <div class="hud-group right">
+    <div class="speed" id="speed">
+      <button data-speed="0" title="Pause">⏸</button>
+      <button data-speed="1" class="on" title="Normal speed">▶</button>
+      <button data-speed="2" title="Faster">⏩</button>
+      <button data-speed="3" title="Fastest">⏭</button>
+    </div>
+    <button class="pill btn" id="btn-journal" title="Field notes: what you've learned">📖 <span id="notes-count">0</span></button>
+    <button class="pill btn" id="btn-menu" title="Menu">☰</button>
+  </div>
+</div>
+<div id="hint" class="hidden"></div>
+<div id="tip" class="hidden"></div>
+<div id="toasts"></div>
+<div id="lesson" class="hidden"></div>
+
+<!-- ============ bottom toolbar ============ -->
+<div id="toolbar" class="hidden">
+  <div id="tray" class="hidden"></div>
+  <div class="tools">
+    <button class="tool on" data-tool="hand"><span>✋</span>Walk &amp; pick</button>
+    <button class="tool" data-tool="seed"><span>🌱</span>Seeds</button>
+    <button class="tool" data-tool="water"><span>🪣</span>Water</button>
+    <button class="tool" data-tool="soil"><span>🧺</span>Soil care</button>
+    <button class="tool" data-tool="tractor"><span>🚜</span>Tractor</button>
+  </div>
+</div>
+
+<!-- ============ title / sign-in ============ -->
+<div id="title" class="screen">
+  <div class="title-card">
+    <h1>Terra Nova</h1>
+    <p class="tagline">a slow little farm</p>
+    <div id="step-name">
+      <p class="lead">Grow food, look after the soil, and learn why mulch and compost matter.</p>
+      <label for="name-input">What's your name, farmer?</label>
+      <form id="name-form">
+        <input id="name-input" type="text" maxlength="24" autocomplete="off" spellcheck="false" placeholder="Your name">
+        <button class="btn big" type="submit">Let's go</button>
+      </form>
+      <p class="small" id="save-mode"></p>
+      <div id="neighbours" class="hidden"></div>
+    </div>
+    <div id="step-welcome" class="hidden"></div>
+    <div id="step-places" class="hidden">
+      <p class="lead" id="places-lead"></p>
+      <div id="places"></div>
+      <button class="link" id="places-back">← Different name</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ journal / menu ============ -->
+<div id="modal" class="screen hidden">
+  <div class="modal-card" id="modal-card"></div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/core.js"></script>
+<script src="js/data.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/plants.js"></script>
+<script src="js/art.js"></script>
+<script src="js/actors.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

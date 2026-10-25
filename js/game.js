@@ -1,0 +1,207 @@
+/* Terra Nova — the game controller: tools, clicks, the clock and saving. */
+(function () {
+  const Farm = window.Farm;
+  const { clamp } = Farm;
+  const W = Farm.world;
+  const Act = () => Farm.actors;
+
+  const Game = (Farm.game = {
+    state: null,
+    ui: { tool: "hand", seed: null, waterMode: "bucket", soil: "straw", speed: 1 },
+    dirty: false,
+    saving: false,
+    sinceSave: 0,
+    hover: -1,
+  });
+
+  Game.markDirty = () => { Game.dirty = true; };
+
+  Game.start = function (state) {
+    Game.state = Farm.sim.repair(state);
+    const loc = Farm.LOCATIONS[Game.state.loc];
+    Game.ui = { tool: "hand", seed: loc.crops[0], waterMode: "bucket", soil: "straw", speed: 1 };
+    Game.hover = -1;
+    Game.sinceSave = 0;
+    Act().reset();
+    Farm.lesson("alive");
+    Farm.emit("started");
+  };
+
+  Game.stop = async function () {
+    if (!Game.state) return;
+    await Game.save();
+    Game.state = null;
+    Farm.emit("stopped");
+  };
+
+  /* ---------- clock ---------- */
+  Game.update = function (dt) {
+    const s = Game.state;
+    if (!s) return;
+    let days = dt * Game.ui.speed;
+    while (days > 0) {
+      const step = Math.min(days, 0.25);
+      Farm.sim.update(s, step);
+      days -= step;
+    }
+    const fast = Game.ui.speed >= 2 ? 1.6 : 1;
+    Act().update(dt * fast);
+    Game.sinceSave += dt;
+    if (Game.sinceSave > 15) Game.save();
+  };
+
+  Game.save = async function (opts) {
+    if (!Game.state || Game.saving) return;
+    Game.saving = true;
+    Game.sinceSave = 0;
+    Farm.emit("savestatus", "saving");
+    try {
+      const status = await Farm.storage.save(Game.state, opts);
+      Game.dirty = false;
+      Farm.emit("savestatus", status);
+    } finally {
+      Game.saving = false;
+    }
+  };
+
+  /* ---------- tools ---------- */
+  Game.setTool = function (tool) {
+    const A = Act();
+    const ui = Game.ui;
+    if (tool !== "tractor") {
+      const f = A.farmer;
+      f.queue = f.queue.filter((j) => j.type !== "mount");
+      if (f.cur && f.cur.job.type === "mount" && f.cur.stage === "walk") f.cur = null;
+      if (A.isMounted() || A.tractor.queue.length || A.tractor.cur) A.dismount();
+    }
+    if (tool === "tractor" && ui.tool !== "tractor") {
+      if (!A.isMounted()) {
+        A.stopQueue();
+        A.enqueue({ type: "mount" });
+      }
+    }
+    ui.tool = tool;
+    Farm.emit("toolchange", tool);
+  };
+
+  Farm.on("dismounted", () => {
+    if (Game.ui.tool === "tractor") Game.setTool("hand");
+  });
+  Farm.on("mounted", () => {
+    if (Game.ui.tool !== "tractor") return Act().dismount(); // she changed her mind while climbing up
+    Farm.toast("🚜 Tractor ready. Click each plot you want tilled.");
+  });
+
+  function jobFor(i, wx) {
+    const s = Game.state, ui = Game.ui, pl = s.plots[i], S = Farm.sim;
+    switch (ui.tool) {
+      case "hand":
+        if (S.isRipe(pl)) return { type: "harvest", plot: i, x: wx };
+        if (pl.crop && pl.crop.dead) return { type: "clear", plot: i, x: wx };
+        if (pl.weeds >= 15) return { type: "weed", plot: i, x: wx };
+        return null;
+      case "seed":
+        return ui.seed ? { type: "plant", plot: i, x: wx, crop: ui.seed } : null;
+      case "water":
+        return { type: ui.waterMode === "drip" ? "drip" : "water", plot: i, x: wx };
+      case "soil":
+        if (ui.soil === "compost") return { type: "compost", plot: i, x: wx };
+        if (ui.soil === "feed") return { type: "feed", plot: i, x: wx };
+        return { type: "mulch", plot: i, x: wx, mat: ui.soil };
+    }
+    return null;
+  }
+
+  /* 'ok' | 'bad' | 'neutral' | null — drives the outline when hovering a plot */
+  Game.hoverState = function (i) {
+    const s = Game.state;
+    if (!s || i < 0) return null;
+    if (Game.ui.tool === "tractor") return Act().tillCheck(i) ? "bad" : "ok";
+    const job = jobFor(i, null);
+    if (!job) return "neutral";
+    return Act().check(job) ? "bad" : "ok";
+  };
+
+  /* ---------- clicks (world coordinates) ---------- */
+  const inBox = (x, y, cx, cy, l, r, u, d) => x >= cx - l && x <= cx + r && y >= cy - u && y <= cy + d;
+
+  Game.plotAt = function (x, y) {
+    for (let i = 0; i < W.plots.length; i++) {
+      const r = W.plots[i];
+      if (x >= r.x - 4 && x <= r.x + r.w + 4 && y >= r.y - 4 && y <= r.y + r.h + 14) return i;
+    }
+    return -1;
+  };
+  Game.hitTractor = (x, y) => {
+    const t = Act().tractor;
+    return inBox(x, y, t.x, t.y, 75, 70, 92, 8);
+  };
+  Game.hitHose = (x, y) => inBox(x, y, W.hose.x, W.hose.y, 56, 56, 80, 12);
+  Game.hitBin = (x, y) => inBox(x, y, W.bin.x, W.bin.y, 52, 52, 96, 12);
+
+  Game.click = function (x, y) {
+    const s = Game.state;
+    if (!s) return;
+    const A = Act();
+    Farm.sound.blip(0, 0.001, "sine", 0.0001); // wakes the audio context on first tap
+    if (Game.hitTractor(x, y)) {
+      Game.setTool(Game.ui.tool === "tractor" ? "hand" : "tractor");
+      return;
+    }
+    const i = Game.plotAt(x, y);
+    if (i >= 0) {
+      if (Game.ui.tool === "tractor") return A.queueTill(i);
+      const job = jobFor(i, x);
+      if (!job) return Farm.emit("inspect", i);
+      const err = A.check(job);
+      if (err) return Farm.toast(err);
+      return A.enqueue(job);
+    }
+    if (Game.hitHose(x, y)) {
+      if (A.isMounted()) return Farm.toast("Hop off the tractor first (click it to park).");
+      return A.enqueue({ type: "fill" });
+    }
+    if (Game.hitBin(x, y)) {
+      if (A.isMounted()) return Farm.toast("Hop off the tractor first (click it to park).");
+      const err = A.check({ type: "bin" });
+      if (err) return Farm.toast(err);
+      return A.enqueue({ type: "bin" });
+    }
+    if (Game.ui.tool === "tractor") {
+      return Farm.toast("The tractor tills plots. Click a plot, or click the tractor again to park it.");
+    }
+    A.walkTo(x, y);
+  };
+
+  /* ---------- shopping ---------- */
+  Game.buy = function (kind) {
+    const s = Game.state, m = Farm.MATERIALS[kind];
+    if (s.money < m.price) return Farm.toast(`${m.name} costs ${Farm.money(m.price)}.`);
+    s.money -= m.price;
+    s.inv[kind] += 1;
+    Farm.sound.blip(520, 0.08, "triangle", 0.05, 700);
+    Game.markDirty();
+    Farm.emit("inventory");
+  };
+  Game.buyBucket = function () {
+    const s = Game.state;
+    if (s.bucketCap >= 8) return Farm.toast("You already have the big bucket.");
+    if (s.money < Farm.PRICES.bigBucket) return Farm.toast(`A bigger bucket costs ${Farm.money(Farm.PRICES.bigBucket)}.`);
+    s.money -= Farm.PRICES.bigBucket;
+    s.bucketCap = 8;
+    Farm.toast("🪣 Bigger bucket! Eight pours per fill.");
+    Game.markDirty();
+    Farm.emit("inventory");
+  };
+
+  Game.setSpeed = function (n) {
+    Game.ui.speed = n;
+    Farm.emit("speed", n);
+  };
+
+  /* never lose progress when the tab closes */
+  window.addEventListener("pagehide", () => Game.state && Game.save({ keepalive: true }));
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && Game.state) Game.save({ keepalive: true });
+  });
+})();
