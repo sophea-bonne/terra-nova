@@ -173,9 +173,11 @@
 
   J.water = {
     pose: "water", face: "up", dur: 1.9, stand: plotStand,
-    check(j) {
+    check(j, early) {
       const s = st(), pl = s.plots[j.plot];
-      if (s.bucket <= 0) return "Your bucket is empty. Click the hose reel on the left to fill it.";
+      /* an empty bucket is fine if she's already on her way to the hose */
+      const refilling = farmer.queue.some((q) => q.type === "fill") || (farmer.cur && farmer.cur.job.type === "fill");
+      if (s.bucket <= 0 && !(early && refilling)) return "Your bucket is empty. Click the hose reel on the left to fill it.";
       if (pl.moist >= 95) return "This plot is already soaked.";
       return null;
     },
@@ -459,7 +461,9 @@
       s.inv.compost += n;
       s.bin.ready = 0;
       fx.text(W.bin.x, W.bin.y - 70, `+${n} compost`, "#6a4a2a");
+      s.stats.collected = (s.stats.collected || 0) + 1;
       Farm.lesson("compost");
+      if (s.stats.collected >= 2) Farm.lesson("heap"); // a second note, saved for the second batch
       Farm.sound.blip(300, 0.12, "triangle", 0.05, 480);
     },
   };

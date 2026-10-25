@@ -486,7 +486,7 @@
       Farm.sound.blip(880, 0.2, "sine", 0.04, 1200);
     });
     Farm.on("smothered", (i) => Farm.toast(`🌱 Plot ${i + 1}: the grass has rotted down under the mulch. The soil is ready to sow!`));
-    Farm.on("binready", () => { Farm.lesson("heap"); if (!lastSig.binToast) { lastSig.binToast = 1; Farm.toast("🧺 Compost is ready in the bin (bottom-left). Click it to collect."); } });
+    Farm.on("binready", () => { if (!lastSig.binToast) { lastSig.binToast = 1; Farm.toast("🧺 Compost is ready in the bin (bottom-left). Click it to collect."); } });
     Farm.on("leveldone", (next) => {
       Farm.toast("🎉 Level complete!" + (next ? ` ${Farm.LOCATIONS[next].short} is unlocked.` : ""));
       Farm.sound.blip(660, 0.3, "sine", 0.06, 1320);
