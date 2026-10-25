@@ -500,6 +500,10 @@
       Farm.sound.blip(660, 0.3, "sine", 0.06, 1320);
       openGoals();
     });
+    Farm.on("weedAlert", (i) => {
+      Farm.toast(`Uh oh! Weeds have taken over plot ${i + 1}. Nothing will grow there until you pull them. Click the plot.`);
+      Farm.sound.blip(220, 0.3, "sawtooth", 0.03, 150);
+    });
     Farm.on("wind", () => {
       const st = G().state;
       if (st.stats.windSeen) return; // the pop-up is only for the first gust

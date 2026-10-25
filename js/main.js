@@ -125,7 +125,12 @@
     ents.push({ y: W.hose.y, f: () => A.hose(ctx, W.hose.x, W.hose.y, live && st.bucket === 0 && g.ui.tool === "water", time) });
     ents.push({ y: W.bin.y, f: () => A.bin(ctx, W.bin.x, W.bin.y, st.bin, time) });
     ents.push({ y: W.sign.y, f: () => A.sign(ctx, W.sign.x, W.sign.y, st.name) });
-    if (!yard) TREES.forEach(([x, y, r]) => ents.push({ y, f: () => A.blobTree(ctx, x, y - r, r, colors.leaf, 0.5) }));
+    if (loc.hills) {
+      [[46, 262, 1], [1240, 470, 1.1], [34, 600, 0.9]].forEach(([x, y, k]) => ents.push({ y, f: () => A.oak(ctx, x, y, k) }));
+      [[72, 440, 0.9], [1216, 590, 1]].forEach(([x, y, k]) => ents.push({ y, f: () => A.eucalyptus(ctx, x, y, k) }));
+      [[560, 606, 1], [830, 616, 0.8], [1190, 336, 0.9], [118, 296, 0.7], [960, 560, 0.7]].forEach(([x, y, k]) => ents.push({ y, f: () => A.boulder(ctx, x, y, k) }));
+      [[200, 590, 1], [420, 612, 0.9], [980, 360, 0.8], [1150, 560, 1], [40, 380, 0.9], [690, 590, 0.8]].forEach(([x, y, k]) => ents.push({ y, f: () => A.scrub(ctx, x, y, k) }));
+    } else if (!yard) TREES.forEach(([x, y, r]) => ents.push({ y, f: () => A.blobTree(ctx, x, y - r, r, colors.leaf, 0.5) }));
 
     const farmer = live ? Farm.actors.farmer : demoFarmer;
     const tractor = live ? Farm.actors.tractor : demoTractor;

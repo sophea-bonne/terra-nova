@@ -149,7 +149,7 @@
   S.waterLabel = (m) => (m < 12 ? "Very thirsty" : m < 30 ? "Getting dry" : m < 80 ? "Nicely watered" : "Soaked");
   S.tilthLabel = (t) => (t < 30 ? "Hard clods" : t < 60 ? "Lumpy" : "Crumbly");
   S.lifeLabel = (l) => (l < 25 ? "Tired soil" : l < 50 ? "Waking up" : l < 75 ? "Healthy" : "Thriving");
-  S.weedLabel = (w) => (w < 15 ? "Clean" : w < 45 ? "Some weeds" : "Weedy");
+  S.weedLabel = (w) => (w < 15 ? "Clean" : w < 50 ? "Some weeds" : "Choked by weeds");
   S.mulchLabel = (m) => (m < 5 ? "Bare" : m < 40 ? "Thin mulch" : "Well mulched");
 
   S.harvestValue = function (st, pl) {
@@ -296,7 +296,9 @@
     const soil = 0.5 + 0.55 * clamp((pl.fert * 0.45 + pl.life * 0.35 + pl.tilth * 0.2) / 100, 0, 1);
     let sm = def.season[s];
     if (!loc.frost && s === 3 && !def.frostDie) sm = Math.max(sm, 0.7); // mild winters keep crops growing
-    const weedF = 1 - 0.5 * clamp(pl.weeds / 100, 0, 1);
+    const weedF = clamp(1 - pl.weeds / 50, 0, 1); // growth halves at 25% weeds and stops completely at 50%
+    if (pl.weeds >= 50 && !pl.weedAlert) { pl.weedAlert = true; Farm.emit("weedAlert", i); }
+    else if (pl.weeds < 20) pl.weedAlert = false;
     const rate = fit * sm * w * soil * weedF * (crop.fed ? 1.3 : 1);
 
     if (def.kind === "tree") {

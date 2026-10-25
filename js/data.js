@@ -170,7 +170,7 @@
       text: "Mulch shades the soil so less water evaporates, keeps weed seeds from getting light, softens the impact of rain and keeps the soil temperature steadier. As it rots it feeds the soil life, so you are watering and fertilizing at once." },
     { id: "weeds", icon: "🌱", title: "Weeds love bare soil",
       hint: "Let weeds appear on an uncovered plot.",
-      text: "Nature never leaves soil bare for long. Weeds are the first responders. A mulch layer or a crop planted close together leaves them very little room." },
+      text: "Nature never leaves soil bare for long. Weeds are the first responders, and they steal water, light and nutrients, so a crop can't grow while they have the upper hand. A mulch layer or a crop planted close together leaves them very little room." },
     { id: "pulling", icon: "🧤", title: "Weeds are compost",
       hint: "Pull weeds by hand.",
       text: "Pulled weeds are not waste: they are 'greens' (fresh, nitrogen-rich plant material) for your compost bin. Pull them before they flower and set seed." },

@@ -136,11 +136,22 @@
   const J = {};
   J.walk = {};
 
+  /* trees can go straight into turf if you're willing to dig each hole by hand (tough work: a full day) */
+  const diggingIn = (j) => {
+    const pl = st().plots[j.plot];
+    return Farm.CROPS[j.crop].kind === "tree" && pl.prep === "grass" && !Farm.sim.softSoil(st(), pl);
+  };
   J.plant = {
-    pose: "plant", face: "up", dur: 2.6, stand: plotStand,
+    pose: (j) => (diggingIn(j) ? "weed" : "plant"), face: "up", dur: (j) => (diggingIn(j) ? Farm.TICKS_PER_DAY : 2.6), stand: plotStand,
     check(j, early) {
       const s = st(), pl = s.plots[j.plot], def = Farm.CROPS[j.crop];
       if (pl.crop) return "Something is already growing here.";
+      if (pl.prep === "grass" && def.kind === "tree" && !pl.smothering && !(early && pendingTill(j.plot)) && !Farm.sim.softSoil(s, pl)) {
+        if (Farm.sim.frozen(s)) return "The ground is frozen solid. Wait for spring.";
+        if (pl.moist < 25) return "The ground is rock-hard. Water this spot first, then you can dig a hole by hand.";
+        if (s.money < cropCost(def)) return `You need ${Farm.money(cropCost(def))} for ${def.name.toLowerCase()}.`;
+        return null; // dig and water: a full day of tough work, but no tilling needed
+      }
       if (pl.prep === "grass" && !(early && pendingTill(j.plot)) && !Farm.sim.softSoil(s, pl))
         return pl.smothering
           ? "The grass under the mulch is still dying back. It takes about a year in summer, so be patient."
@@ -151,6 +162,10 @@
     },
     fx(j, p, dt) {
       j.acc = (j.acc || 0) + dt;
+      if (diggingIn(j)) {
+        if (j.acc > 0.15) { j.acc = 0; fx.dust(farmer.x + (Math.random() - 0.5) * 60, farmer.y - 12, 3, "#8a6a42"); }
+        return;
+      }
       if (j.acc > 0.07 && p < 0.9) {
         j.acc = 0;
         const slots = Farm.sim.slots(j.plot, j.crop);
@@ -164,7 +179,7 @@
       if (pl.crop || s.money < cropCost(def)) return;
       s.money -= cropCost(def);
       pl.crop = { type: j.crop, p: 0, age: 0, fruit: 0, stress: 0, fed: false, dead: false };
-      if (pl.prep === "grass") { pl.prep = "bare"; pl.smothering = false; pl.smother = 0; } // sown straight into soft, wet turf
+      if (pl.prep === "grass" && def.kind !== "tree") { pl.prep = "bare"; pl.smothering = false; pl.smother = 0; } // sown straight into soft, wet turf
       pl.weeds *= 0.5;
       Farm.sound.blip(420, 0.12, "triangle", 0.05, 640);
       if (def.kind === "tree") Farm.lesson("perennial");
@@ -561,7 +576,7 @@
       const def = J[c.job.type];
       c.t += dt;
       const dur = jobDur(def, c.job);
-      farmer.pose = def.pose;
+      farmer.pose = typeof def.pose === "function" ? def.pose(c.job) : def.pose;
       farmer.poseT = clamp(c.t / dur, 0, 1);
       if (def.fx) def.fx(c.job, farmer.poseT, dt);
       if (c.t >= dur) {

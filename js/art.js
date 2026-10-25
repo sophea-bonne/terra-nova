@@ -105,20 +105,62 @@
   A.treeline = function (ctx, st, vis) {
     const c = A.colors(st);
     if (Farm.LOCATIONS[st.loc].hills) {
-      const layers = [[96, 22, 0.011, [170, 148, 92]], [112, 26, 0.008, [188, 160, 98]], [128, 20, 0.014, [205, 176, 108]]];
-      layers.forEach(([base, amp, freq, col], li) => {
-        const g = ctx.createLinearGradient(0, base - amp, 0, base + 60);
-        g.addColorStop(0, rgb(col, 1.1));
-        g.addColorStop(1, rgb(col, 0.82));
+      /* Fallbrook/Rainbow: hazy ridges, golden chaparral slopes and terraced avocado groves */
+      const sky = ctx.createLinearGradient(0, vis.y0, 0, 120);
+      sky.addColorStop(0, "#9ccbe8");
+      sky.addColorStop(1, "#f4e9cc");
+      ctx.fillStyle = sky;
+      ctx.fillRect(vis.x0 - 20, vis.y0 - 20, vis.x1 - vis.x0 + 40, 150 - vis.y0 + 20);
+      const layers = [
+        { base: 52, amp: 30, f: 0.006, ph: 1.0, col: [150, 158, 190], rough: 0.5 }, // far, hazy mountains
+        { base: 84, amp: 32, f: 0.008, ph: 3.0, col: [196, 170, 116], rough: 0.3 },
+        { base: 108, amp: 28, f: 0.011, ph: 0.4, col: [176, 150, 94], rough: 0.2 },
+        { base: 128, amp: 16, f: 0.015, ph: 2.2, col: [162, 138, 84], rough: 0.2 },
+      ];
+      const hillY = (L, x) => L.base - Math.sin(x * L.f + L.ph) * L.amp - Math.sin(x * L.f * 2.7 + L.ph) * L.amp * L.rough;
+      layers.forEach((L, li) => {
+        const g = ctx.createLinearGradient(0, L.base - L.amp, 0, 170);
+        g.addColorStop(0, rgb(L.col, 1.12));
+        g.addColorStop(1, rgb(L.col, 0.84));
         ctx.fillStyle = g;
         ctx.beginPath();
-        ctx.moveTo(vis.x0 - 20, 150);
-        for (let x = vis.x0 - 20; x <= vis.x1 + 20; x += 20) ctx.lineTo(x, base - Math.sin(x * freq + li * 2) * amp - Math.sin(x * freq * 2.3 + li) * amp * 0.4);
-        ctx.lineTo(vis.x1 + 20, 150);
+        ctx.moveTo(vis.x0 - 20, 180);
+        for (let x = vis.x0 - 20; x <= vis.x1 + 20; x += 16) ctx.lineTo(x, hillY(L, x));
+        ctx.lineTo(vis.x1 + 20, 180);
         ctx.fill();
+        /* soft ridge highlight */
+        ctx.strokeStyle = "rgba(255,240,200,.28)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let x = vis.x0 - 20; x <= vis.x1 + 20; x += 16) x === vis.x0 - 20 ? ctx.moveTo(x, hillY(L, x)) : ctx.lineTo(x, hillY(L, x));
+        ctx.stroke();
+        if (li === 0) {
+          ctx.fillStyle = "rgba(235,225,215,.28)"; // haze
+          ctx.fillRect(vis.x0, 20, vis.x1 - vis.x0, 120);
+        }
       });
+      /* sage scrub on the slopes and rows of avocado trees on the middle hill */
       const rnd = Farm.rng(5);
-      for (let x = vis.x0; x < vis.x1; x += 70) A.blobTree(ctx, x + rnd() * 40, 120 + rnd() * 14, 10 + rnd() * 6, [112, 128, 72], 0.4);
+      for (let x = vis.x0; x < vis.x1; x += 22) {
+        const L = layers[1 + Math.floor(rnd() * 3)];
+        const y = hillY(L, x) + 6 + rnd() * 26;
+        ctx.fillStyle = rgb([128 + rnd() * 20, 138 + rnd() * 16, 98], 1, 0.9);
+        ctx.beginPath();
+        ctx.ellipse(x, y, 7 + rnd() * 5, 4 + rnd() * 2.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      const grove = layers[2];
+      for (let row = 0; row < 3; row++)
+        for (let x = 320; x < 760; x += 15) {
+          const y = hillY(grove, x) + 14 + row * 9;
+          const gg = ctx.createRadialGradient(x - 2, y - 3, 0.5, x, y, 6);
+          gg.addColorStop(0, "#4f8a45");
+          gg.addColorStop(1, "#244a2a");
+          ctx.fillStyle = gg;
+          ctx.beginPath();
+          ctx.arc(x, y, 5.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
       return;
     }
     const rnd = Farm.rng(11);
@@ -143,6 +185,70 @@
       ctx.arc(bx, by, br, 0, Math.PI * 2);
       ctx.fill();
     }
+  };
+
+  /* ---------- Rainbow scenery: live oaks, eucalyptus, granite boulders, sage ---------- */
+  A.oak = function (ctx, x, y, k) {
+    ell(ctx, x, y + 3, 44 * k, 8 * k, "rgba(20,35,8,.28)");
+    ctx.fillStyle = "#5a4330";
+    ctx.beginPath();
+    ctx.moveTo(x - 7 * k, y); ctx.quadraticCurveTo(x - 4 * k, y - 22 * k, x - 12 * k, y - 34 * k); ctx.lineTo(x + 12 * k, y - 34 * k); ctx.quadraticCurveTo(x + 4 * k, y - 22 * k, x + 7 * k, y);
+    ctx.fill();
+    for (const [dx, dy, rx, ry, sh] of [[-26, -40, 28, 20, 0.8], [26, -40, 28, 20, 0.85], [0, -52, 34, 24, 1.0], [-12, -34, 26, 18, 0.9], [14, -34, 26, 18, 0.95]]) {
+      const g = ctx.createRadialGradient(x + (dx - 8) * k, y + (dy - 8) * k, 3, x + dx * k, y + dy * k, rx * k);
+      g.addColorStop(0, rgb([96, 120, 66], sh * 1.2));
+      g.addColorStop(1, rgb([46, 70, 40], sh * 0.85));
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.ellipse(x + dx * k, y + dy * k, rx * k, ry * k, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  };
+  A.eucalyptus = function (ctx, x, y, k) {
+    ell(ctx, x, y + 3, 26 * k, 6 * k, "rgba(20,35,8,.25)");
+    const tg = ctx.createLinearGradient(x - 6 * k, 0, x + 6 * k, 0);
+    tg.addColorStop(0, "#9b8f7e");
+    tg.addColorStop(0.5, "#d8cfbd");
+    tg.addColorStop(1, "#8a7e6e");
+    ctx.fillStyle = tg;
+    ctx.beginPath();
+    ctx.moveTo(x - 6 * k, y); ctx.quadraticCurveTo(x - 3 * k, y - 60 * k, x - 4 * k, y - 112 * k); ctx.lineTo(x + 4 * k, y - 112 * k); ctx.quadraticCurveTo(x + 4 * k, y - 60 * k, x + 6 * k, y);
+    ctx.fill();
+    for (const [dx, dy, r] of [[-14, -108, 15], [12, -118, 17], [0, -130, 16], [-6, -94, 13], [16, -98, 13]]) {
+      const g = ctx.createRadialGradient(x + (dx - 4) * k, y + (dy - 4) * k, 2, x + dx * k, y + dy * k, r * k);
+      g.addColorStop(0, "#9bb596");
+      g.addColorStop(1, "#4f7255");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.ellipse(x + dx * k, y + dy * k, r * k * 0.8, r * k * 1.25, dx * 0.02, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  };
+  A.boulder = function (ctx, x, y, k) {
+    ell(ctx, x + 3 * k, y + 2, 34 * k, 7 * k, "rgba(20,25,8,.3)");
+    const g = ctx.createLinearGradient(x - 30 * k, y - 40 * k, x + 30 * k, y);
+    g.addColorStop(0, "#c9c3b6");
+    g.addColorStop(0.55, "#a39d92");
+    g.addColorStop(1, "#6f6a62");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(x - 32 * k, y);
+    ctx.quadraticCurveTo(x - 36 * k, y - 26 * k, x - 14 * k, y - 36 * k);
+    ctx.quadraticCurveTo(x + 8 * k, y - 44 * k, x + 26 * k, y - 28 * k);
+    ctx.quadraticCurveTo(x + 38 * k, y - 12 * k, x + 32 * k, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "rgba(60,56,50,.4)";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(x - 6 * k, y - 38 * k); ctx.lineTo(x - 2 * k, y - 20 * k); ctx.lineTo(x - 10 * k, y - 6 * k);
+    ctx.stroke();
+    ell(ctx, x + 14 * k, y - 22 * k, 6 * k, 3.5 * k, "rgba(190,200,120,.6)"); // lichen
+  };
+  A.scrub = function (ctx, x, y, k) {
+    ell(ctx, x, y + 2, 20 * k, 5 * k, "rgba(20,35,8,.2)");
+    for (const [dx, dy, r, c] of [[-10, -6, 9, [136, 148, 104]], [8, -8, 10, [150, 158, 112]], [0, -14, 8, [124, 140, 98]], [16, -2, 7, [140, 150, 106]]])
+      ell(ctx, x + dx * k, y + dy * k, r * k, r * 0.75 * k, rgb(c));
   };
 
   A.fence = function (ctx, vis) {
@@ -454,18 +560,21 @@
 
     /* weeds */
     if (!isGrass) {
-      const n = Math.floor(v.weeds.length * clamp(pl.weeds / 80, 0, 1));
+      const n = Math.floor(v.weeds.length * clamp(pl.weeds / 45, 0, 1));
       for (let k = 0; k < n; k++) {
         const w = v.weeds[k];
-        ctx.lineWidth = 2;
+        const big = 1.6 + Math.min(1, pl.weeds / 60) * 0.8;
+        ctx.lineWidth = 3;
         ctx.lineCap = "round";
-        for (let b = -1; b <= 1; b++) {
-          ctx.strokeStyle = b ? "#69a33e" : "#86c04d";
+        ell(ctx, w.x, w.y + 1, 9 * big * 0.7, 3, "rgba(20,35,8,.25)");
+        for (let b = -2; b <= 2; b++) {
+          ctx.strokeStyle = b % 2 ? "#4f8f2c" : "#78b83e";
           ctx.beginPath();
-          ctx.moveTo(w.x, w.y);
-          ctx.quadraticCurveTo(w.x + b * 4 * w.s, w.y - 6 * w.s, w.x + b * 7 * w.s, w.y - 12 * w.s + Math.abs(b) * 3);
+          ctx.moveTo(w.x + b, w.y);
+          ctx.quadraticCurveTo(w.x + b * 5 * w.s * big * 0.5, w.y - 8 * w.s * big, w.x + b * 8 * w.s * big, w.y - 15 * w.s * big + Math.abs(b) * 3);
           ctx.stroke();
         }
+        if (pl.weeds > 30 && w.a > 0.4) ell(ctx, w.x + 1, w.y - 17 * w.s * big, 3.4, 3.4, "#ffd94a"); // dandelion
       }
     }
 
@@ -608,7 +717,9 @@
     }
     /* growth / progress */
     const gx = r.x + 95 * k, gw = 104 * k;
-    if (pl.crop && !pl.crop.dead) {
+    if (pl.crop && !pl.crop.dead && pl.weeds >= 50) {
+      pill(ctx, gx, y, gw, iconSprout, 0, "#d9772b", "Weeds!", Math.sin(time * 6) > 0);
+    } else if (pl.crop && !pl.crop.dead) {
       const f = S.progress(pl);
       pill(ctx, gx, y, gw, iconSprout, f, ripe ? "#e5a91d" : "#5fa83a", ripe ? "Ready!" : null, ripe && Math.sin(time * 5) > 0);
     } else if (pl.crop && pl.crop.dead) {
@@ -647,18 +758,29 @@
     }
     /* weeds warning */
     if (pl.weeds > 35) {
-      const wx = r.x + r.w - 26, wy = r.y + 8;
-      ctx.fillStyle = "rgba(255,246,214,.96)";
-      rr(ctx, wx, wy, 22, 22, 7);
+      const stopped = pl.weeds >= 50 && pl.crop && !pl.crop.dead;
+      const text = stopped ? "Uh oh! Weeds! Growth stopped" : "Uh oh! Weeds!";
+      ctx.font = "bold 13px 'Trebuchet MS', sans-serif";
+      const bw = ctx.measureText(text).width + 22, bh = 28;
+      const bx = r.x + r.w / 2 - bw / 2, by = r.y + 6 + Math.sin(time * 5) * 2.5;
+      ctx.fillStyle = "rgba(20,10,0,.2)";
+      rr(ctx, bx + 2, by + 3, bw, bh, 10);
       ctx.fill();
-      ctx.strokeStyle = "#d9772b";
-      ctx.lineWidth = 1.8;
+      ctx.fillStyle = stopped ? "#d9472b" : "#f59a2e";
+      rr(ctx, bx, by, bw, bh, 10);
+      ctx.fill();
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 2.5;
       ctx.stroke();
-      ctx.fillStyle = "#d9772b";
-      ctx.font = "bold 15px sans-serif";
+      ctx.fillStyle = "#fff";
+      ctx.beginPath();
+      ctx.moveTo(r.x + r.w / 2 - 6, by + bh - 1);
+      ctx.lineTo(r.x + r.w / 2 + 6, by + bh - 1);
+      ctx.lineTo(r.x + r.w / 2, by + bh + 8);
+      ctx.fill();
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("!", wx + 11, wy + 12);
+      ctx.fillText(text, r.x + r.w / 2, by + bh / 2 + 1);
       ctx.textAlign = "left";
     }
     if (ripe) {
