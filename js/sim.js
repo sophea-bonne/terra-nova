@@ -224,7 +224,7 @@
     pl.moist -= evap * dt;
     const infil = S.infil(pl);
     if (st.weather.raining) {
-      pl.moist += (covered || crop ? 3.6 : 2.6) * infil * dt;
+      pl.moist += (covered || crop ? 9 : 7) * infil * dt;
       if (!covered && !crop && pl.prep === "bare") pl.tilth = Math.max(0, pl.tilth - 0.06 * dt); // raindrops seal bare soil
     }
     if (pl.drip && pl.moist < 70) pl.moist += 5 * dt;

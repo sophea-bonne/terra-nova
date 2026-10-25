@@ -4,8 +4,8 @@
 
   Farm.SEASONS = ["Spring", "Summer", "Autumn", "Winter"];
   Farm.SEASON_ICONS = ["🌸", "☀️", "🍂", "❄️"];
-  Farm.DAYS_PER_SEASON = 120; // one game day = one real second at 1× speed
-  Farm.DAYS_PER_YEAR = 480;
+  Farm.DAYS_PER_SEASON = 200; // one game day = one real second at 1× speed
+  Farm.DAYS_PER_YEAR = 800;
 
   Farm.LEVELS = ["sunnyvale", "rainbow", "geneva", "farfa"];
 

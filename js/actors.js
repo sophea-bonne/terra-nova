@@ -664,7 +664,7 @@
   }
 
   /* the tractor is quick; a hand-pushed rototiller is not */
-  const speeds = () => (Farm.LOCATIONS[st().loc].kit === "rototiller" ? { free: 120, till: 70 } : { free: 300, till: 230 });
+  const speeds = () => (Farm.LOCATIONS[st().loc].kit === "rototiller" ? { free: 200, till: 130 } : { free: 450, till: 400 });
 
   function drive(dt, dx, dy, d, speed) {
     const T = tractor;
