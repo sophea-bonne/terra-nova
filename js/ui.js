@@ -13,6 +13,7 @@
   let playerName = "";
 
   function fitTag(loc, id) {
+    if (Farm.CROPS[id].tender && loc.frost) return ["Dies in winter", "meh"];
     const f = loc.fit[id];
     return f >= 1.1 ? ["Thrives here", "good"] : f >= 0.95 ? ["Does well", "ok"] : ["Tricky here", "meh"];
   }
@@ -53,28 +54,31 @@
           $("#restart").textContent = "This replaces your saved farm. Click again to confirm.";
           return;
         }
-        showPlaces();
+        showPlaces(st.progress);
       };
       $("#welcome-back").onclick = () => showStep("name");
     } else showPlaces();
   }
 
-  function showPlaces() {
-    showStep("places");
-    $("#places-lead").innerHTML = `Nice to meet you, <b>${esc(playerName)}</b>. Where will your farm be?`;
-    const box = $("#places");
+  const KIT = { rototiller: "Rototiller (by hand)", tractor: "Tractor", none: "No tractor: too steep" };
+
+  /* the level cards, used by the sign-in screen and the in-game Levels menu */
+  function renderLevels(box, progress, pick) {
     box.innerHTML = "";
-    for (const loc of Object.values(Farm.LOCATIONS)) {
+    Farm.LEVELS.forEach((id) => {
+      const loc = Farm.LOCATIONS[id];
+      const open = progress.unlocked.indexOf(id) >= 0;
       const crops = loc.crops
-        .map((id) => {
-          const c = Farm.CROPS[id], [t, k] = fitTag(loc, id);
-          return `<li><span>${c.icon} ${c.name.replace(/ \(.*\)/, "")}</span><em class="${k}">${t}</em></li>`;
+        .map((c) => {
+          const [t, k] = fitTag(loc, c);
+          return `<li title="${esc(Farm.CROPS[c].name)}: ${t}"><span>${Farm.CROPS[c].icon}</span><em class="${k}">${t}</em></li>`;
         })
         .join("");
-      const card = el("div", "place");
+      const card = el("div", "place" + (open ? "" : " locked"));
       card.innerHTML = `
         <div class="hero" style="background:linear-gradient(180deg,${loc.hero[0]},${loc.hero[1]} 62%)">
           <i class="sun"></i><i class="hill a" style="background:${loc.hero[2]}"></i><i class="hill b" style="background:${loc.hero[1]}"></i>
+          <span class="lvl">Level ${loc.level}${progress.done[id] ? " ✓" : ""}</span>
         </div>
         <div class="pbody">
           <h3>${loc.name}</h3>
@@ -84,12 +88,20 @@
           </div>
           <div class="soillegend"><span>sand</span><span>silt</span><span>clay</span></div>
           <p class="soilnote"><b>${loc.soilName}.</b> ${loc.soilNote}</p>
+          <p class="soilnote">🛠️ ${KIT[loc.kit]} · 🌧️ ${loc.frost ? "rain all year, freezing winters" : id === "farfa" ? "wet winters, dry summers" : "rain only in winter"}</p>
           <ul class="crops">${crops}</ul>
-          <button class="btn">Settle here</button>
+          <button class="btn" ${open ? "" : "disabled"}>${open ? (progress.done[id] ? "Play again" : "Start") : "🔒 Finish the level before"}</button>
         </div>`;
-      card.querySelector(".btn").onclick = () => G().start(Farm.sim.newState(playerName, loc.id));
+      if (open) card.querySelector(".btn").onclick = () => pick(id);
       box.appendChild(card);
-    }
+    });
+  }
+
+  function showPlaces(progress) {
+    showStep("places");
+    progress = progress || { unlocked: ["sunnyvale"], done: {} };
+    $("#places-lead").innerHTML = `Nice to meet you, <b>${esc(playerName)}</b>. Pick a level. Each one has its own soil, climate and tools.`;
+    renderLevels($("#places"), progress, (id) => G().start(Farm.sim.newState(playerName, id, { progress })));
   }
 
   async function loadNeighbours() {
@@ -135,7 +147,12 @@
     });
     setIf("year", S.year(s), (v) => ($("#cal-year").textContent = v));
     $("#cal-marker").style.left = S.yearProg(s) * 100 + "%";
-    const sig = [g.ui.tool, g.ui.seed, g.ui.waterMode, g.ui.soil, s.bucket, s.bucketCap, Math.floor(s.money / 5), JSON.stringify(s.inv), s.bin.ready].join("|");
+    if (!lastSig.gt || performance.now() - lastSig.gt > 1000) {
+      lastSig.gt = performance.now();
+      const gl = g.goals();
+      setIf("goals", gl.filter((x) => x.done).length + "/" + gl.length, (v) => ($("#goals-count").textContent = v));
+    }
+    const sig = [g.ui.tool, g.ui.seed, g.ui.waterMode, g.ui.soil, s.bucket, s.bucketCap, Math.floor(s.money / 5), JSON.stringify(s.inv), s.bin.ready, s.loc].join("|");
     setIf("sig", sig, () => { renderTray(); renderHint(); });
   };
 
@@ -166,25 +183,25 @@
       html = loc.crops
         .map((id) => {
           const c = Farm.CROPS[id], [t, k] = fitTag(loc, id);
-          return `<div class="card ${u.seed === id ? "sel" : ""} ${s.money < c.cost ? "poor" : ""}" data-seed="${id}">
+          return `<div class="card ${u.seed === id ? "sel" : ""} ${s.money < Farm.sim.cost(s, c.cost) ? "poor" : ""}" data-seed="${id}">
             <div class="ic">${c.icon}</div><b>${c.name}</b>
-            <span class="price">${money(c.cost)} · ${c.speed}</span>
+            <span class="price">${money(Farm.sim.cost(s, c.cost))} · ${c.speed}</span>
             <em class="${k}">${t}</em>
             <small>${c.blurb}</small></div>`;
         })
         .join("");
     } else if (u.tool === "water") {
       const dots = Array.from({ length: s.bucketCap }, (_, i) => `<i class="${i < s.bucket ? "on" : ""}"></i>`).join("");
-      html = `<div class="card ${u.waterMode === "bucket" ? "sel" : ""}" data-wm="bucket"><div class="ic">🪣</div><b>Bucket</b><div class="dots">${dots}</div><small>Fill at the hose reel on the left, then pour on a plot.</small></div>
-        <div class="card ${u.waterMode === "drip" ? "sel" : ""} ${s.money < Farm.PRICES.drip ? "poor" : ""}" data-wm="drip"><div class="ic">💧</div><b>Drip line</b><span class="price">${money(Farm.PRICES.drip)} per plot</span><small>Waters a plot by itself, slowly, right at the roots.</small></div>`;
-      if (s.bucketCap < 8) html += `<div class="card ${s.money < Farm.PRICES.bigBucket ? "poor" : ""}" data-bigbucket="1"><div class="ic">🪣</div><b>Bigger bucket</b><span class="price">${money(Farm.PRICES.bigBucket)}</span><small>Eight pours per fill instead of four.</small></div>`;
+      html = `<div class="card ${u.waterMode === "bucket" ? "sel" : ""}" data-wm="bucket"><div class="ic">🪣</div><b>Bucket</b><div class="dots">${dots}</div><small>${loc.scale === "ranch" ? "Forty acres from a bucket? It barely wets the ground. Irrigation is the answer." : "Fill at the hose reel on the left, then pour on a plot."}</small></div>
+        <div class="card ${u.waterMode === "drip" ? "sel" : ""} ${s.money < Farm.sim.cost(s, Farm.PRICES.drip) ? "poor" : ""}" data-wm="drip"><div class="ic">💧</div><b>Drip line</b><span class="price">${money(Farm.sim.cost(s, Farm.PRICES.drip))} per ${loc.bed}</span><small>Waters a plot by itself, slowly, right at the roots.</small></div>`;
+      if (s.bucketCap < 8) html += `<div class="card ${s.money < Farm.sim.cost(s, Farm.PRICES.bigBucket) ? "poor" : ""}" data-bigbucket="1"><div class="ic">🪣</div><b>Bigger bucket</b><span class="price">${money(Farm.sim.cost(s, Farm.PRICES.bigBucket))}</span><small>Eight pours per fill instead of four.</small></div>`;
     } else if (u.tool === "soil") {
       html = Object.values(Farm.MATERIALS)
         .map((m) => `<div class="card ${u.soil === m.id ? "sel" : ""}" data-soil="${m.id}">
             <div class="ic">${m.icon}</div><b>${m.name}</b>
-            <span class="price">You have ${s.inv[m.id]}</span>
+            <span class="price">You have ${s.inv[m.id]}${m.id === "straw" || m.id === "chips" || m.id === "compost" ? (loc.labor > 2 ? " · slow to spread" : "") : ""}</span>
             <small>${m.blurb}</small>
-            <button class="buy ${s.money < m.price ? "poor" : ""}" data-buy="${m.id}">Buy +1 · ${money(m.price)}</button></div>`)
+            <button class="buy ${s.money < Farm.sim.matPrice(s, m.id) ? "poor" : ""}" data-buy="${m.id}">Buy +1 · ${money(Farm.sim.matPrice(s, m.id))}</button></div>`)
         .join("");
     } else if (u.tool === "tractor") {
       html = `<div class="card wide"><div class="ic">🚜</div><b>Tractor</b><small>Click each plot you want tilled and the tractor will drive over, one after another.</small><button class="buy" data-park="1">Park the tractor</button></div>`;
@@ -240,6 +257,7 @@
       <li>💧 ${S.waterLabel(pl.moist)}</li>
       <li>🪱 ${S.lifeLabel(pl.life)}</li>
       <li>🌱 Fertility ${pl.fert < 30 ? "low" : pl.fert < 60 ? "medium" : "high"}</li>
+      <li>🧱 ${S.tilthLabel(pl.tilth)}</li>${pl.fabric ? "<li>🟫 Landscape fabric</li>" : ""}${pl.noWeeds > 0 ? "<li>☠️ Sprayed</li>" : ""}
       <li>🧣 ${S.mulchLabel(pl.mulch)}</li>
       <li>🌿 ${S.weedLabel(pl.weeds)}</li>${pl.drip ? "<li>💧 Drip line</li>" : ""}</ul>`;
   };
@@ -278,7 +296,7 @@
     box.classList.remove("in");
     void box.offsetWidth;
     box.classList.add("in");
-    const close = () => { clearTimeout(timer); show(box, false); lessonShowing = false; setTimeout(showNextLesson, 700); };
+    const close = () => { clearTimeout(timer); show(box, false); lessonShowing = false; setTimeout(showNextLesson, 14000); };
     const timer = setTimeout(close, 26000);
     box.querySelector("button").onclick = close;
   }
@@ -315,6 +333,33 @@
       <div class="notes">${cards}</div>`);
   }
 
+  function openGoals() {
+    const g = G(), s = g.state, L = Farm.LOCATIONS[s.loc], list = g.goals();
+    const next = Farm.LEVELS[Farm.LEVELS.indexOf(s.loc) + 1];
+    const rows = list
+      .map((x) => `<div class="goal ${x.done ? "done" : ""}"><span>${x.done ? "✅" : "⬜"} ${x.text}</span><div class="bar"><i style="width:${Math.round((x.val / x.max) * 100)}%"></i></div></div>`)
+      .join("");
+    const all = list.every((x) => x.done);
+    openModal(`<div class="mhead"><h2>🎯 Level ${L.level}: ${L.name}</h2><button class="x" data-close>✕</button></div>
+      <p class="small">${L.intro}</p>
+      <div class="goals">${rows}</div>
+      ${all ? `<p class="lead">🎉 Level complete!</p>${next ? `<button class="btn big" id="go-next">Go to level ${L.level + 1}: ${Farm.LOCATIONS[next].short}</button>` : '<p class="small">That was the last level. You are a soil farmer now.</p>'}` : '<p class="small">Keep farming. Goals update by themselves.</p>'}
+      <p style="margin-top:12px"><button class="link" id="go-levels">Choose another level</button></p>`, () => {
+      const n = $("#go-next");
+      if (n) n.onclick = () => { closeModal(); g.travel(next); };
+      $("#go-levels").onclick = openLevels;
+    });
+  }
+  function openLevels() {
+    const g = G(), s = g.state;
+    openModal(`<div class="mhead"><h2>Levels</h2><button class="x" data-close>✕</button></div>
+      <p class="small">Starting a level begins a fresh farm there and replaces this one. Your field notes stay.</p><div id="lv-grid" class="levels"></div>`, () => {
+      renderLevels($("#lv-grid"), s.progress, (id) => {
+        if (id === s.loc || window.confirm("Start a fresh farm in " + Farm.LOCATIONS[id].name + "? Your current farm will be replaced.")) { closeModal(); g.travel(id); }
+      });
+    });
+  }
+
   function openMenu() {
     const s = G().state;
     const status = Farm.storage.isCloud() ? "☁️ Saved online" : "💾 Saved on this device";
@@ -324,11 +369,13 @@
         <button class="btn" id="m-save">Save now</button>
         <button class="btn" id="m-sound">Sound: ${Farm.sound.on ? "on" : "off"}</button>
         <button class="btn" id="m-notes">📖 Field notes</button>
+        <button class="btn" id="m-levels">🗺️ Levels</button>
         <button class="btn alt" id="m-switch">Switch farmer</button>
       </div>`, () => {
       $("#m-save").onclick = async () => { await G().save(); $("#menu-status").textContent = "Saved ✓"; };
       $("#m-sound").onclick = (e) => { Farm.sound.on = !Farm.sound.on; e.target.textContent = "Sound: " + (Farm.sound.on ? "on" : "off"); };
       $("#m-notes").onclick = openJournal;
+      $("#m-levels").onclick = openLevels;
       $("#m-switch").onclick = async () => { closeModal(); await G().stop(); };
     });
   }
@@ -345,6 +392,7 @@
     $("#name-form").onsubmit = onName;
     $("#places-back").onclick = () => showStep("name");
     $("#btn-journal").onclick = openJournal;
+    $("#btn-goals").onclick = openGoals;
     $("#btn-menu").onclick = openMenu;
     $("#modal").onclick = (e) => { if (e.target.id === "modal") closeModal(); };
     bindToolbar();
@@ -355,14 +403,22 @@
       const s = G().state;
       show($("#title"), false);
       ["#hud", "#toolbar"].forEach((q) => show($(q), true));
-      $("#hud-name").innerHTML = `<i class="dot device"></i>${esc(s.name)}'s farm`;
+      const L = Farm.LOCATIONS[s.loc];
+      $("#hud-name").innerHTML = `<i class="dot device"></i>${esc(s.name)} · Level ${L.level}: ${L.short}`;
+      const tb = $("[data-tool=tractor]");
+      tb.innerHTML = L.kit === "rototiller" ? "<span>⚙️</span><em>Rototiller</em>" : "<span>🚜</span><em>Tractor</em>";
+      tb.classList.toggle("blocked", L.kit === "none");
+      tb.title = L.kit === "none" ? "Too steep for a tractor here" : "";
       $("#notes-count").textContent = Object.keys(s.lessons).length;
       trayOpen = false;
       lastSig = {};
       $$("#speed button").forEach((b) => b.classList.toggle("on", +b.dataset.speed === 1));
       G().save();
       const loc = Farm.LOCATIONS[s.loc];
-      if (s.day < 3) Farm.toast(`Welcome to ${loc.name.split(",")[0]}! Start by preparing a patch of grass: use the tractor, or smother it with mulch.`);
+      if (s.day - loc.startDay < 3) {
+        Farm.toast(loc.intro);
+        if (loc.kit === "none") Farm.toast("Try mulch, compost or weed control from the Soil care menu.");
+      }
       else Farm.toast(`Welcome back, ${s.name}! Your farm kept all its progress.`);
     });
     Farm.on("stopped", () => {
@@ -387,7 +443,17 @@
       Farm.sound.blip(880, 0.2, "sine", 0.04, 1200);
     });
     Farm.on("smothered", (i) => Farm.toast(`🌱 Plot ${i + 1}: the grass has rotted down under the mulch. The soil is ready to sow!`));
-    Farm.on("binready", () => { if (!lastSig.binToast) { lastSig.binToast = 1; Farm.toast("🧺 Compost is ready in the bin (bottom-left). Click it to collect."); } });
+    Farm.on("binready", () => { Farm.lesson("heap"); if (!lastSig.binToast) { lastSig.binToast = 1; Farm.toast("🧺 Compost is ready in the bin (bottom-left). Click it to collect."); } });
+    Farm.on("leveldone", (next) => {
+      Farm.toast("🎉 Level complete!" + (next ? ` ${Farm.LOCATIONS[next].short} is unlocked.` : ""));
+      Farm.sound.blip(660, 0.3, "sine", 0.06, 1320);
+      openGoals();
+    });
+    Farm.on("wind", () => Farm.toast("💨 A strong wind is blowing. Anything loose could go flying."));
+    Farm.on("fabricLost", (i) => {
+      Farm.toast(`💨 The wind tore up the landscape fabric on ${Farm.LOCATIONS[G().state.loc].bed} ${i + 1}, and the weeds are coming back.`);
+      Farm.lesson("fabric");
+    });
     Farm.on("inspect", (i) => {
       const r = Farm.view.worldToScreen(Farm.world.plots[i].x + Farm.world.plots[i].w / 2, Farm.world.plots[i].y + 40);
       UI.showTip(UI.plotTip(i), r.x, r.y, 5000);

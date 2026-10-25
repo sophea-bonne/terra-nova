@@ -52,6 +52,7 @@
       straw: pts(160, () => ({ x: r.x + 6 + rnd() * (r.w - 12), y: r.y + 6 + rnd() * (r.h - 12), a: rnd() * Math.PI, l: 7 + rnd() * 8, c: rnd() })),
       chips: pts(110, () => ({ x: r.x + 6 + rnd() * (r.w - 12), y: r.y + 6 + rnd() * (r.h - 12), a: rnd() * 6, s: 2.5 + rnd() * 3, c: rnd() })),
       weeds: pts(18, () => ({ x: r.x + 12 + rnd() * (r.w - 24), y: r.y + 14 + rnd() * (r.h - 22), s: 0.8 + rnd() * 0.7, a: rnd() })),
+      clods: pts(46, () => ({ x: r.x + 8 + rnd() * (r.w - 16), y: r.y + 8 + rnd() * (r.h - 16), s: 3 + rnd() * 5, a: rnd() * 3 })),
       worms: pts(5, () => ({ x: r.x + 18 + rnd() * (r.w - 36), y: r.y + 18 + rnd() * (r.h - 36), ph: rnd() * 6, a: rnd() * 3 })),
     };
     return VIS[i];
@@ -102,6 +103,23 @@
 
   A.treeline = function (ctx, st, vis) {
     const c = A.colors(st);
+    if (Farm.LOCATIONS[st.loc].hills) {
+      const layers = [[96, 22, 0.011, [170, 148, 92]], [112, 26, 0.008, [188, 160, 98]], [128, 20, 0.014, [205, 176, 108]]];
+      layers.forEach(([base, amp, freq, col], li) => {
+        const g = ctx.createLinearGradient(0, base - amp, 0, base + 60);
+        g.addColorStop(0, rgb(col, 1.1));
+        g.addColorStop(1, rgb(col, 0.82));
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.moveTo(vis.x0 - 20, 150);
+        for (let x = vis.x0 - 20; x <= vis.x1 + 20; x += 20) ctx.lineTo(x, base - Math.sin(x * freq + li * 2) * amp - Math.sin(x * freq * 2.3 + li) * amp * 0.4);
+        ctx.lineTo(vis.x1 + 20, 150);
+        ctx.fill();
+      });
+      const rnd = Farm.rng(5);
+      for (let x = vis.x0; x < vis.x1; x += 70) A.blobTree(ctx, x + rnd() * 40, 120 + rnd() * 14, 10 + rnd() * 6, [112, 128, 72], 0.4);
+      return;
+    }
     const rnd = Farm.rng(11);
     for (let x = vis.x0 - 120; x < vis.x1 + 120; x += 56) {
       const k = rnd(), k2 = rnd();
@@ -217,6 +235,39 @@
     /* wet sheen */
     ctx.fillStyle = `rgba(20,12,4,${0.03 + 0.15 * (pl.moist / 100)})`;
     ctx.fillRect(r.x, r.y, r.w, r.h);
+
+    /* hard clods in baked soil */
+    if (!isGrass && pl.tilth < 45) {
+      const n = Math.floor(v.clods.length * clamp((45 - pl.tilth) / 35, 0.1, 1));
+      for (let k = 0; k < n; k++) {
+        const c = v.clods[k];
+        ell(ctx, c.x + 1.5, c.y + 1.5, c.s, c.s * 0.7, "rgba(30,15,0,.35)");
+        ell(ctx, c.x, c.y, c.s, c.s * 0.7, rgb(loc.soilColor, 1.05));
+        ell(ctx, c.x - c.s * 0.25, c.y - c.s * 0.25, c.s * 0.5, c.s * 0.3, "rgba(255,240,210,.25)");
+      }
+    }
+
+    /* landscape fabric */
+    if (pl.fabric) {
+      const windy = st.weather.wind > 0;
+      const lift = windy ? Math.sin(time * 10 + i) * 3 : 0;
+      const fg = ctx.createLinearGradient(0, r.y, r.x + r.w, r.y + r.h);
+      fg.addColorStop(0, "#44484c");
+      fg.addColorStop(0.5, "#5a5f64");
+      fg.addColorStop(1, "#3d4145");
+      ctx.fillStyle = fg;
+      rr(ctx, r.x + 5, r.y + 5 + lift, r.w - 10, r.h - 10, 8);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,.10)";
+      ctx.lineWidth = 1;
+      for (let x = r.x + 40; x < r.x + r.w - 10; x += 36) {
+        ctx.beginPath();
+        ctx.moveTo(x, r.y + 6);
+        ctx.lineTo(x + (windy ? Math.sin(time * 8 + x) * 3 : 0), r.y + r.h - 6);
+        ctx.stroke();
+      }
+      for (const [px, py] of [[r.x + 12, r.y + 12], [r.x + r.w - 12, r.y + 12], [r.x + 12, r.y + r.h - 12], [r.x + r.w - 12, r.y + r.h - 12]]) ell(ctx, px, py, 3, 3, "#c0c6cc");
+    }
 
     /* mulch layer */
     if (pl.mulch > 1) {
@@ -455,9 +506,10 @@
   };
 
   /* ---------- buildings & props ---------- */
-  A.barn = function (ctx, x, y) {
+  A.barn = function (ctx, x, y, k) {
     ctx.save();
     ctx.translate(x, y);
+    if (k) ctx.scale(k, k);
     ell(ctx, 0, 6, 150, 14, "rgba(20,35,8,.25)");
     /* body */
     const bg = ctx.createLinearGradient(-110, 0, 110, 0);
@@ -923,6 +975,52 @@
       if (f.carry) bucket(ctx, hx + 1, hy - 1, pose === "water" ? 0.5 + f.poseT : 0, f.level);
       ctx.restore();
     }
+    ctx.restore();
+  };
+
+  /* ---------- the hand-pushed rototiller (used on the back-yard level) ---------- */
+  A.rototiller = function (ctx, t, time) {
+    ctx.save();
+    ctx.translate(t.x, t.y);
+    ell(ctx, 0, 2, 38, 6, "rgba(20,35,8,.3)");
+    if (t.face === "left") ctx.scale(-1, 1);
+    const shake = t.driving ? Math.sin(time * 45) * 0.8 : 0;
+    ctx.translate(0, shake);
+    /* handlebars back to the farmer */
+    ctx.strokeStyle = "#3b4248";
+    ctx.lineWidth = 3.4;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-8, -22); ctx.lineTo(-40, -44);
+    ctx.stroke();
+    ctx.strokeStyle = "#1f2428";
+    ctx.lineWidth = 5.5;
+    ctx.beginPath();
+    ctx.moveTo(-40, -44); ctx.lineTo(-46, -46);
+    ctx.stroke();
+    /* tines at the front */
+    ctx.save();
+    ctx.translate(26, -11);
+    ell(ctx, 0, 0, 11, 11, "#5f676e");
+    ctx.rotate(t.rot || 0);
+    ctx.fillStyle = "#c4cbd1";
+    for (let k = 0; k < 6; k++) {
+      ctx.rotate(Math.PI / 3);
+      ctx.fillRect(8, -2, 8, 4);
+    }
+    ctx.restore();
+    /* engine and wheel */
+    const bg = ctx.createLinearGradient(0, -38, 0, -14);
+    bg.addColorStop(0, "#f0603f");
+    bg.addColorStop(1, "#a72f1c");
+    ctx.fillStyle = bg;
+    rr(ctx, -12, -36, 34, 22, 6);
+    ctx.fill();
+    ctx.fillStyle = "#2b2f33";
+    rr(ctx, -4, -42, 16, 8, 3);
+    ctx.fill();
+    ell(ctx, -6, -9, 9, 9, "#242b30");
+    ell(ctx, -6, -9, 4, 4, "#d8dde0");
     ctx.restore();
   };
 

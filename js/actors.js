@@ -116,17 +116,21 @@
 
   /* take 1 from the shelf, or buy it on the spot if you can afford it */
   function stock(kind) {
-    const s = st(), m = Farm.MATERIALS[kind];
+    const s = st(), m = Farm.MATERIALS[kind], price = Farm.sim.matPrice(s, kind);
     if (s.inv[kind] > 0) return true;
-    if (s.money >= m.price) {
-      s.money -= m.price;
+    if (s.money >= price) {
+      s.money -= price;
       s.inv[kind] += 1;
-      Farm.toast(`Bought 1 ${m.name.toLowerCase()} for ${Farm.money(m.price)}.`);
+      Farm.toast(`Bought 1 ${m.name.toLowerCase()} for ${Farm.money(price)}.`);
       return true;
     }
     return false;
   }
-  const canGet = (kind) => st().inv[kind] > 0 || st().money >= Farm.MATERIALS[kind].price;
+  const canGet = (kind) => st().inv[kind] > 0 || st().money >= Farm.sim.matPrice(st(), kind);
+  const cropCost = (def) => Farm.sim.cost(st(), def.cost);
+  const s_cost = (k) => Farm.sim.cost(st(), Farm.PRICES[k]);
+  const labor = () => Farm.LOCATIONS[st().loc].labor;
+  const jobDur = (def, job) => (typeof def.dur === "function" ? def.dur(job) : def.dur);
 
   /* ---------- job catalogue ---------- */
   const J = {};
@@ -142,7 +146,7 @@
           ? "The grass under the mulch is still dying back. A little patience!"
           : "This patch is still turf. Till it with the tractor, or smother it with mulch first.";
       if (Farm.sim.frozen(s)) return "The ground is frozen solid. Wait for spring.";
-      if (s.money < def.cost) return `You need ${Farm.money(def.cost)} for ${def.name.toLowerCase()}.`;
+      if (s.money < cropCost(def)) return `You need ${Farm.money(cropCost(def))} for ${def.name.toLowerCase()}.`;
       return null;
     },
     fx(j, p, dt) {
@@ -157,8 +161,8 @@
     },
     done(j) {
       const s = st(), pl = s.plots[j.plot], def = Farm.CROPS[j.crop];
-      if (pl.crop || s.money < def.cost) return;
-      s.money -= def.cost;
+      if (pl.crop || s.money < cropCost(def)) return;
+      s.money -= cropCost(def);
       pl.crop = { type: j.crop, p: 0, age: 0, fruit: 0, stress: 0, fed: false, dead: false };
       pl.weeds *= 0.5;
       Farm.sound.blip(420, 0.12, "triangle", 0.05, 640);
@@ -178,7 +182,7 @@
     start(j) { j.m0 = st().plots[j.plot].moist; },
     fx(j, p, dt) {
       const pl = st().plots[j.plot];
-      pl.moist = clamp(j.m0 + 48 * p, 0, 100);
+      pl.moist = clamp(j.m0 + Farm.LOCATIONS[st().loc].pour * Farm.sim.infil(pl) * p, 0, 100);
       if (p > 0.2) {
         j.acc = (j.acc || 0) + dt;
         if (j.acc > 0.045) {
@@ -192,7 +196,9 @@
     done(j) {
       const s = st();
       s.bucket = Math.max(0, s.bucket - 1);
-      if (Farm.LOCATIONS[s.loc].sand >= 50) Farm.lesson("texture");
+      const pl = s.plots[j.plot];
+      if (pl.tilth < 35) Farm.lesson("clumpy");
+      else if (Farm.LOCATIONS[s.loc].sand >= 50) Farm.lesson("texture");
     },
   };
 
@@ -285,17 +291,17 @@
   };
 
   J.mulch = {
-    pose: "mulch", face: "up", dur: 1.9, stand: plotStand,
+    pose: "mulch", face: "up", dur: () => 1.9 * labor(), stand: plotStand,
     check(j) {
       const s = st(), pl = s.plots[j.plot], m = Farm.MATERIALS[j.mat];
-      if (!canGet(j.mat)) return `You need ${Farm.money(m.price)} for ${m.name.toLowerCase()}.`;
+      if (!canGet(j.mat)) return `You need ${Farm.money(Farm.sim.matPrice(s, j.mat))} for ${m.name.toLowerCase()}.`;
       if (pl.mulch >= 85 && !pl.smothering) return "This plot is already well mulched.";
       return null;
     },
     start(j) { stock(j.mat); },
     fx(j, p, dt) {
       j.acc = (j.acc || 0) + dt;
-      if (j.acc > 0.05 && p < 0.9) {
+      if (j.acc > 0.05 * Math.min(2, labor()) && p < 0.9) {
         j.acc = 0;
         const h = handPos(), t = rndIn(W.plots[j.plot], 14);
         fx.arc("bit", h.x, h.y, t.x, t.y, j.mat === "chips" ? "#9a6e44" : "#dcb85c", j.mat === "chips" ? 3.2 : 2.4);
@@ -322,10 +328,9 @@
   };
 
   J.compost = {
-    pose: "mulch", face: "up", dur: 1.6, stand: plotStand,
+    pose: "mulch", face: "up", dur: () => 1.6 * Math.max(1, labor() * 0.8), stand: plotStand,
     check(j) {
-      const s = st(), m = Farm.MATERIALS.compost;
-      return canGet("compost") ? null : `You need ${Farm.money(m.price)} for a bag of compost.`;
+      return canGet("compost") ? null : `You need ${Farm.money(Farm.sim.matPrice(st(), "compost"))} for a bag of compost.`;
     },
     start() { stock("compost"); },
     fx(j, p, dt) {
@@ -342,6 +347,7 @@
       s.inv.compost -= 1;
       pl.fert = Math.min(100, pl.fert + 22);
       pl.life = Math.min(100, pl.life + 14);
+      pl.tilth = Math.min(100, pl.tilth + 10);
       fx.spark(farmer.x, farmer.y - 40);
       Farm.lesson("compost");
       Farm.sound.blip(380, 0.14, "sine", 0.05, 560);
@@ -354,7 +360,7 @@
       const pl = st().plots[j.plot];
       if (!pl.crop || pl.crop.dead) return "Quick-feed is for growing plants. Plant something first.";
       if (pl.crop.fed) return "This crop already got its quick-feed.";
-      if (!canGet("feed")) return `You need ${Farm.money(Farm.MATERIALS.feed.price)} for quick-feed.`;
+      if (!canGet("feed")) return `You need ${Farm.money(Farm.sim.matPrice(st(), "feed"))} for quick-feed.`;
       return null;
     },
     start() { stock("feed"); },
@@ -378,17 +384,69 @@
     check(j) {
       const s = st();
       if (s.plots[j.plot].drip) return "This plot already has a drip line.";
-      if (s.money < Farm.PRICES.drip) return `A drip line costs ${Farm.money(Farm.PRICES.drip)}.`;
+      if (s.money < s_cost("drip")) return `A drip line costs ${Farm.money(s_cost("drip"))}.`;
       return null;
     },
     done(j) {
       const s = st();
-      if (s.money < Farm.PRICES.drip) return;
-      s.money -= Farm.PRICES.drip;
+      if (s.money < s_cost("drip")) return;
+      s.money -= s_cost("drip");
       s.plots[j.plot].drip = true;
       fx.spark(farmer.x, farmer.y - 40);
       Farm.lesson("drip");
       Farm.toast("💧 Drip line installed. This plot now waters itself.");
+    },
+  };
+
+  J.fabric = {
+    pose: "mulch", face: "up", dur: () => 2.2 * Math.max(1, labor() * 0.5), stand: plotStand,
+    check(j) {
+      const s = st(), pl = s.plots[j.plot];
+      if (pl.fabric) return "This plot already has fabric.";
+      if (pl.smothering) return "Fabric and sheet mulching don't mix: pick one.";
+      if (!canGet("fabric")) return `You need ${Farm.money(Farm.sim.matPrice(s, "fabric"))} for landscape fabric.`;
+      return null;
+    },
+    start() { stock("fabric"); },
+    done(j) {
+      const s = st(), pl = s.plots[j.plot];
+      if (s.inv.fabric <= 0) return;
+      s.inv.fabric -= 1;
+      pl.fabric = true;
+      pl.weeds = 0;
+      if (pl.prep === "grass") pl.prep = "bare";
+      fx.dust(farmer.x, farmer.y - 10, 4, "#6b6f73");
+      Farm.lesson("fabric");
+      Farm.sound.blip(240, 0.14, "triangle", 0.04);
+    },
+  };
+
+  J.herbicide = {
+    pose: "mulch", face: "up", dur: 1.3, stand: plotStand,
+    check(j) {
+      const s = st(), pl = s.plots[j.plot];
+      if (pl.crop) return "Weedkiller would kill the crop too. Spray before planting.";
+      if (pl.smothering) return "The mulch is already doing this job.";
+      if (!canGet("herbicide")) return `You need ${Farm.money(Farm.sim.matPrice(s, "herbicide"))} for herbicide.`;
+      return null;
+    },
+    start() { stock("herbicide"); },
+    fx(j, p, dt) {
+      j.acc = (j.acc || 0) + dt;
+      if (j.acc > 0.05) { j.acc = 0; fx.dust(farmer.x + (Math.random() - 0.5) * 70, farmer.y - 20, 1, "rgba(200,225,170,.9)"); }
+    },
+    done(j) {
+      const s = st(), pl = s.plots[j.plot];
+      if (s.inv.herbicide <= 0) return;
+      s.inv.herbicide -= 1;
+      pl.weeds = 0;
+      pl.noWeeds = 60;
+      pl.life = Math.max(0, pl.life - 14);
+      pl.fert = Math.max(0, pl.fert - 3);
+      if (pl.prep === "grass") { pl.prep = "bare"; pl.till = false; }
+      Farm.lesson("herbicide");
+      Farm.toast("☠️ Weeds gone in a flash, but the worm count dropped.");
+      Farm.sound.blip(120, 0.25, "sawtooth", 0.03);
     },
   };
 
@@ -403,7 +461,6 @@
       s.bin.ready = 0;
       fx.text(W.bin.x, W.bin.y - 70, `+${n} compost`, "#6a4a2a");
       Farm.lesson("compost");
-      Farm.lesson("heap");
       Farm.sound.blip(300, 0.12, "triangle", 0.05, 480);
     },
   };
@@ -493,10 +550,11 @@
     } else {
       const def = J[c.job.type];
       c.t += dt;
+      const dur = jobDur(def, c.job);
       farmer.pose = def.pose;
-      farmer.poseT = clamp(c.t / def.dur, 0, 1);
+      farmer.poseT = clamp(c.t / dur, 0, 1);
       if (def.fx) def.fx(c.job, farmer.poseT, dt);
-      if (c.t >= def.dur) {
+      if (c.t >= dur) {
         def.done(c.job);
         farmer.cur = null;
         farmer.pose = "none";
@@ -522,8 +580,10 @@
   }
 
   Act.tillCheck = function (plotIdx) {
-    const s = st(), pl = s.plots[plotIdx];
+    const s = st(), pl = s.plots[plotIdx], loc = Farm.LOCATIONS[s.loc];
+    if (loc.kit === "none") { Farm.lesson("steep"); return "These slopes are far too steep for a tractor. It would tip over."; }
     if (pl.crop) return "Harvest or clear the crop before tilling.";
+    if (loc.kit === "rototiller" && pl.moist < 15) { Farm.lesson("clumpy"); return "The soil is baked rock-hard. The rototiller just bounces off. Water this bed first."; }
     if (Farm.sim.frozen(s)) return "The ground is frozen. The tractor can't till it.";
     if (pl.smothering) return "The mulch is already working on this one.";
     return null;
@@ -567,7 +627,7 @@
           farmer.face = "down";
           Farm.emit("dismounted");
         } else {
-          drive(dt, dx, dy, d, 190);
+          drive(dt, dx, dy, d, speeds().free);
         }
       }
       return;
@@ -577,7 +637,7 @@
     const pl = st().plots[c.job.plot];
     const tillingNow = !!p.till && c.i > 0;
     if (c.i === 0 && d > 3) {
-      drive(dt, dx, dy, d, 200);
+      drive(dt, dx, dy, d, speeds().free);
       return;
     }
     if (d < 3) {
@@ -588,14 +648,18 @@
     if (tillingNow) {
       T.tilling = true;
       pl.till = true;
-      const step = Math.min(d, 78 * dt);
+      const sp = speeds().till * (Farm.LOCATIONS[st().loc].kit === "rototiller" ? 0.5 + 0.5 * (pl.tilth / 100) : 1);
+      const step = Math.min(d, sp * dt);
       c.tilled += step;
       pl.tillAmt = clamp(c.tilled / c.total, 0, 1);
-      drive(dt, dx, dy, d, 78);
+      drive(dt, dx, dy, d, sp);
       const back = T.face === "right" ? -62 : 62;
       if (Math.random() < 0.6) fx.dust(T.x + back, T.y - 6, 1, "#9a7448");
-    } else drive(dt, dx, dy, d, 120);
+    } else drive(dt, dx, dy, d, speeds().free * 0.8);
   }
+
+  /* the tractor is quick; a hand-pushed rototiller is not */
+  const speeds = () => (Farm.LOCATIONS[st().loc].kit === "rototiller" ? { free: 120, till: 70 } : { free: 300, till: 230 });
 
   function drive(dt, dx, dy, d, speed) {
     const T = tractor;
@@ -618,8 +682,10 @@
     pl.smother = 0;
     pl.weeds = 0;
     pl.mulch = 0;
-    pl.life = Math.max(0, pl.life - 18);
+    pl.life = Math.max(0, pl.life - (Farm.LOCATIONS[s.loc].kit === "rototiller" ? 12 : 18));
     pl.fert = Math.max(0, pl.fert - 3);
+    pl.tilth = Math.max(pl.tilth, 80); // loose and fluffy... for now
+    pl.noWeeds = 0;
     fx.dust(tractor.x, tractor.y, 8);
     Farm.lesson("tilling");
     Farm.toast("🚜 Tilled! It looks neat, but the worm count just dropped. Tilling harms the soil life.");

@@ -4,67 +4,97 @@
 
   Farm.SEASONS = ["Spring", "Summer", "Autumn", "Winter"];
   Farm.SEASON_ICONS = ["🌸", "☀️", "🍂", "❄️"];
-  Farm.DAYS_PER_SEASON = 60; // one game day = one real second at 1× speed
-  Farm.DAYS_PER_YEAR = 240;
+  Farm.DAYS_PER_SEASON = 120; // one game day = one real second at 1× speed
+  Farm.DAYS_PER_YEAR = 480;
 
-  /* sand / silt / clay percentages are rounded from the soil surveys of each region */
+  Farm.LEVELS = ["sunnyvale", "rainbow", "geneva", "farfa"];
+
+  /* sand / silt / clay percentages are rounded from the soil surveys of each region.
+     rain[] = how often it rains in spring, summer, autumn, winter (1 = normal). */
   Farm.LOCATIONS = {
-    rainbow: {
-      id: "rainbow",
-      name: "Rainbow, California",
-      tag: "Sunny granite hills — avocado country.",
-      sand: 70, silt: 15, clay: 15,
-      soilName: "Sandy loam from weathered granite",
-      soilNote: "Drains very quickly and holds few nutrients. Great for avocados and citrus that hate wet feet, hard on thirsty crops.",
-      fert: 28, life: 24, heat: 1.3, frost: false, dryGrass: true,
-      rain: [1.0, 0.2, 0.8, 1.2],
-      crops: ["wheat", "avocado", "citrus"],
-      fit: { wheat: 0.8, avocado: 1.15, citrus: 1.1 },
-      soilColor: [214, 178, 128],
-      hero: ["#ffe9a8", "#e6c58a", "#b98d55"],
-    },
     sunnyvale: {
-      id: "sunnyvale",
-      name: "Sunnyvale, California",
-      tag: "Dark valley clay — the old orchard capital.",
+      id: "sunnyvale", level: 1,
+      name: "Sunnyvale back yard", short: "Sunnyvale", place: "Sunnyvale, California", scale: "yard", bed: "bed",
+      tag: "A small back yard. Everything is done by hand.",
+      intro: "It's the end of a long, dry summer. The back yard soil is baked into hard clumps and thirsty. You can't dig it by hand, so choose: rent a rototiller, or build the soil up with compost and mulch.",
       sand: 7, silt: 46, clay: 47,
-      soilName: "Deep silty clay",
-      soilNote: "Rich and fertile, and it holds water for a long time. It can turn sticky and packed when it is wet and bare.",
-      fert: 62, life: 44, heat: 1.0, frost: false, dryGrass: true,
-      rain: [1.0, 0.15, 0.8, 1.2],
-      crops: ["wheat", "apple", "citrus", "avocado", "cannabis"],
-      fit: { wheat: 1.0, apple: 1.0, citrus: 1.05, avocado: 0.8, cannabis: 1.0 },
+      soilName: "Silty clay",
+      soilNote: "Rich and fertile, and it holds water for a long time. But dry clay bakes into hard clods, and it won't soak up water until it has been softened up.",
+      fert: 58, life: 28, tilth: 12, moist: 4, heat: 1.0, frost: false, dryGrass: true, wind: 0.6, hills: false,
+      kit: "rototiller", costMul: 1, valueMul: 1, money: 260, startDay: 215, labor: 1, pour: 48,
+      rain: [0, 0, 0, 1.6],
+      fit: { wheat: 1.0, cannabis: 1.0, avocado: 0.8, citrus: 1.05, apple: 1.0, olive: 1.0 },
       soilColor: [112, 84, 62],
       hero: ["#c8ecff", "#b5d98a", "#7f9a5f"],
     },
+    rainbow: {
+      id: "rainbow", level: 2,
+      name: "Rainbow, 40 acres", short: "Rainbow", place: "Rainbow, California", scale: "ranch", bed: "field",
+      tag: "Forty hilly acres of sand. Not much grows here.",
+      intro: "Forty acres of sandy granite hills. Water drains straight through, nothing holds nutrients, and the slopes are far too steep for a tractor. Every field is about six acres, so spreading anything by hand takes real labor.",
+      sand: 70, silt: 15, clay: 15,
+      soilName: "Sandy loam from weathered granite",
+      soilNote: "Drains very quickly, holds few nutrients and bakes in the sun. The strong autumn winds here will carry off anything that isn't weighed down.",
+      fert: 14, life: 10, tilth: 60, moist: 3, heat: 1.35, frost: false, dryGrass: true, wind: 2.4, hills: true,
+      kit: "none", costMul: 5, valueMul: 5, money: 1800, startDay: 215, labor: 4.5, pour: 14,
+      rain: [0, 0, 0, 1.0],
+      fit: { wheat: 0.75, cannabis: 0.9, avocado: 1.1, citrus: 1.0, apple: 0.7, olive: 1.0 },
+      soilColor: [214, 178, 128],
+      hero: ["#ffe9a8", "#e6c58a", "#b98d55"],
+    },
     geneva: {
-      id: "geneva",
-      name: "Geneva, Switzerland",
-      tag: "Balanced loam by the lake — but winter freezes the ground.",
+      id: "geneva", level: 3,
+      name: "Geneva, Switzerland", short: "Geneva", place: "Geneva, Switzerland", scale: "farm", bed: "field",
+      tag: "Balanced loam by the lake. It rains all year and winter freezes the ground.",
+      intro: "Good loam and plenty of rain in every season, but cold. Winter freezes the ground and kills anything tender.",
       sand: 32, silt: 43, clay: 25,
       soilName: "Glacial moraine loam",
       soilNote: "A near-perfect mix of sand, silt and clay with good crumb structure. Cold winters slow everything down and freeze the soil.",
-      fert: 66, life: 58, heat: 0.8, frost: true, dryGrass: false,
-      rain: [1.2, 1.0, 1.2, 1.2],
-      crops: ["wheat", "apple"],
-      fit: { wheat: 1.1, apple: 1.15 },
+      fert: 66, life: 50, tilth: 60, moist: 40, heat: 0.8, frost: true, dryGrass: false, wind: 1, hills: false,
+      kit: "tractor", costMul: 2, valueMul: 2, money: 700, startDay: 0, labor: 1.5, pour: 40,
+      rain: [1, 1, 1, 1],
+      fit: { wheat: 1.1, cannabis: 0.7, avocado: 0.4, citrus: 0.5, apple: 1.15, olive: 0.6 },
       soilColor: [128, 98, 70],
       hero: ["#d6e6f2", "#bcd8a0", "#7c9a6e"],
     },
     farfa: {
-      id: "farfa",
-      name: "Farfa, Italy",
+      id: "farfa", level: 4,
+      name: "Farfa, Italy", short: "Farfa", place: "Farfa, Italy", scale: "farm", bed: "field",
       tag: "Clay-loam terraces under an old abbey.",
+      intro: "Wheat and olives have grown here for over a thousand years. Wet winters, dry summers, and clay that cracks in the heat.",
       sand: 30, silt: 37, clay: 33,
       soilName: "Clay loam",
-      soilNote: "Fertile ground that has grown wheat and olives for more than a thousand years. It cracks in the dry summer.",
-      fert: 52, life: 46, heat: 1.1, frost: false, dryGrass: true,
-      rain: [1.0, 0.4, 1.0, 1.3],
-      crops: ["wheat", "olive", "citrus", "avocado"],
-      fit: { wheat: 1.1, olive: 1.15, citrus: 1.0, avocado: 0.85 },
+      soilNote: "Fertile ground that cracks in the dry summer.",
+      fert: 52, life: 40, tilth: 50, moist: 30, heat: 1.1, frost: false, dryGrass: true, wind: 1, hills: false,
+      kit: "tractor", costMul: 2, valueMul: 2, money: 700, startDay: 0, labor: 1.5, pour: 40,
+      rain: [0.8, 0.2, 1, 1.2],
+      fit: { wheat: 1.1, cannabis: 0.8, avocado: 0.85, citrus: 1.0, apple: 0.85, olive: 1.15 },
       soilColor: [160, 112, 80],
       hero: ["#ffe6c6", "#d4e1a7", "#a58a55"],
     },
+  };
+  Object.values(Farm.LOCATIONS).forEach((l) => (l.crops = ["wheat", "cannabis", "avocado", "citrus", "apple", "olive"]));
+
+  /* what you have to do to finish each level (evaluated by the UI) */
+  const avgLife = (st) => st.plots.reduce((a, p) => a + p.life, 0) / st.plots.length;
+  Farm.GOALS = {
+    sunnyvale: [
+      { text: "Bring the soil to healthy (average soil life 55%)", val: (st) => avgLife(st), max: 55 },
+      { text: "Harvest 4 crops", val: (st) => st.stats.harvests, max: 4 },
+    ],
+    rainbow: [
+      { text: "Turn the sand around (average soil life 40%)", val: (st) => avgLife(st), max: 40 },
+      { text: "Harvest 5 crops", val: (st) => st.stats.harvests, max: 5 },
+    ],
+    geneva: [
+      { text: "Build rich soil (average soil life 65%)", val: (st) => avgLife(st), max: 65 },
+      { text: "Harvest 6 crops", val: (st) => st.stats.harvests, max: 6 },
+      { text: "Get through a whole winter", val: (st) => Math.min(1, Math.floor(st.day / Farm.DAYS_PER_YEAR)), max: 1 },
+    ],
+    farfa: [
+      { text: "Soil life of 70% across the farm", val: (st) => avgLife(st), max: 70 },
+      { text: "Harvest 8 crops", val: (st) => st.stats.harvests, max: 8 },
+    ],
   };
 
   /* season[] = how well the crop grows in spring, summer, autumn, winter */
@@ -82,16 +112,16 @@
       blurb: "Legal to grow at home in California (six plants per household). Loves summer, dies at the first frost.",
     },
     avocado: {
-      id: "avocado", name: "Avocado trees", icon: "🥑", kind: "tree", species: "avocado", cost: 220, value: 420,
+      id: "avocado", name: "Avocado trees", icon: "🥑", kind: "tree", tender: true, species: "avocado", cost: 220, value: 420,
       matureDays: 200, fruitDays: 140, season: [1, 1, 0.8, 0.4], hunger: 0.03,
       speed: "Years", grid: [2, 1],
-      blurb: "A slow investment: the trees need well over a year to grow before the first fruit, then keep giving without replanting.",
+      blurb: "A slow investment: well over a year of growing before the first fruit. Frost kills them.",
     },
     citrus: {
-      id: "citrus", name: "Orange trees", icon: "🍊", kind: "tree", species: "citrus", cost: 200, value: 360,
+      id: "citrus", name: "Orange trees", icon: "🍊", kind: "tree", tender: true, species: "citrus", cost: 200, value: 360,
       matureDays: 190, fruitDays: 130, season: [1, 1, 0.9, 0.5], hunger: 0.03,
       speed: "Years", grid: [2, 1],
-      blurb: "Evergreen and generous once established. Roots stay near the surface, so they love a thick mulch ring.",
+      blurb: "Evergreen and generous, with roots near the surface that love mulch. Frost kills them.",
     },
     apple: {
       id: "apple", name: "Apple trees", icon: "🍎", kind: "tree", species: "apple", cost: 180, value: 330,
@@ -108,10 +138,12 @@
   };
 
   Farm.MATERIALS = {
-    straw: { id: "straw", name: "Straw", icon: "🌾", price: 10, blurb: "Light mulch. Breaks down within a season." },
+    straw: { id: "straw", name: "Straw", icon: "🌾", price: 10, blurb: "Cheap mulch. Light, rots within a season. Slow to spread over a big field." },
     chips: { id: "chips", name: "Wood chips", icon: "🪵", price: 18, blurb: "Heavy mulch that lasts. Trees love it." },
-    compost: { id: "compost", name: "Compost", icon: "🧺", price: 25, blurb: "Finished compost: feeds soil life and fertility." },
+    compost: { id: "compost", name: "Compost", icon: "🧺", price: 25, blurb: "Finished compost: feeds soil life, fertility and crumbly soil." },
     feed: { id: "feed", name: "Quick-feed", icon: "🧪", price: 20, blurb: "Soluble fertilizer: fast growth, hungry soil." },
+    fabric: { id: "fabric", name: "Landscape fabric", icon: "🟫", price: 25, blurb: "Plastic sheet that stops weeds. Wind can rip it up, and water struggles to soak through." },
+    herbicide: { id: "herbicide", name: "Herbicide", icon: "☠️", price: 40, blurb: "Kills weeds and grass in a flash. Pricey, and it harms soil life. Not for planted beds." },
   };
 
   Farm.PRICES = { drip: 120, bigBucket: 150 };
@@ -172,5 +204,15 @@
     { id: "frozen", icon: "🧊", title: "Winter rest",
       hint: "Experience a frozen winter.",
       text: "Soil life slows down in the cold but doesn't disappear. Covered soil is insulated and stays a little warmer than bare ground, which is a good reason to keep a blanket of mulch on over winter." },
+    { id: "clumpy", icon: "🧱", title: "Dry soil repels water", hint: "Water the baked soil at the start.",
+      text: "Hard, dry, clumpy soil is like a baked brick: water beads up and runs off instead of soaking in. Soil with lots of organic matter and crumbly structure drinks up water like a sponge." },
+    { id: "fabric", icon: "🟫", title: "Landscape fabric", hint: "Lay landscape fabric.",
+      text: "Fabric stops weeds, but it's plastic: water soaks through slowly, soil life gets no food from above, strong wind can rip it up, and old fabric breaks into plastic fragments in the soil." },
+    { id: "herbicide", icon: "☠️", title: "Herbicide: fast but costly", hint: "Spray herbicide.",
+      text: "Weedkiller works in days and needs no labor, but it costs money and it harms the soil life that your crops depend on. Repeated use leaves soil that needs more and more help." },
+    { id: "tender", icon: "🥶", title: "Know your climate", hint: "Lose a tree to frost.",
+      text: "Avocados and oranges come from warm places and die when the ground freezes. Choosing crops that suit your climate matters more than any trick." },
+    { id: "steep", icon: "⛰️", title: "Slopes and erosion", hint: "Try to use the tractor on the hills.",
+      text: "A tractor can tip over on a steep slope, and loosened soil washes downhill in the rain. On hills, keeping the soil covered is the way to keep it in place." },
   ];
 })();

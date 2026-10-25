@@ -52,23 +52,28 @@
       mulch: 0, mulchType: "straw",
       fert: clamp(loc.fert + (Math.random() - 0.5) * 8, 5, 95),
       life: clamp(loc.life + (Math.random() - 0.5) * 8, 5, 95),
-      moist: 18 + Math.random() * 10,
+      tilth: clamp(loc.tilth + (Math.random() - 0.5) * 8, 0, 100), // 0 = hard clods, 100 = soft crumbs
+      moist: clamp(loc.moist + Math.random() * 6, 0, 100),
       weeds: 0,
+      fabric: false, // landscape fabric laid down
+      noWeeds: 0, // days of weed-free after herbicide
       drip: false,
       crop: null, // { type, p, age, fruit, stress, fed, dead }
     };
   };
 
-  S.newState = function (name, locId) {
+  S.newState = function (name, locId, carry) {
     const loc = Farm.LOCATIONS[locId];
+    carry = carry || {};
     return {
-      v: 1, name, loc: locId, day: 0, money: 260,
-      inv: { straw: 3, chips: 1, compost: 1, feed: 0 },
+      v: 2, name, loc: locId, day: loc.startDay, money: loc.money,
+      progress: carry.progress || { unlocked: ["sunnyvale"], done: {} },
+      inv: { straw: 3, chips: 1, compost: 1, feed: 0, fabric: 0, herbicide: 0 },
       bucketCap: 4, bucket: 0,
       bin: { raw: 2, ready: 1, timer: 0, scraps: 0 },
       plots: plots.map(() => S.newPlot(loc)),
-      lessons: {}, stats: { harvests: 0, earned: 0 },
-      weather: { raining: false, left: 0 },
+      lessons: carry.lessons || {}, stats: { harvests: 0, earned: 0 },
+      weather: { raining: false, left: 0, wind: 0 },
       savedAt: 0,
     };
   };
@@ -79,14 +84,16 @@
     if (!Farm.LOCATIONS[st.loc]) st.loc = "rainbow";
     if (!isFinite(st.day)) st.day = 0;
     if (!isFinite(st.money)) st.money = 100;
-    st.inv = Object.assign({ straw: 0, chips: 0, compost: 0, feed: 0 }, st.inv);
+    st.inv = Object.assign({ straw: 0, chips: 0, compost: 0, feed: 0, fabric: 0, herbicide: 0 }, st.inv);
+    st.progress = Object.assign({ unlocked: ["sunnyvale"], done: {} }, st.progress);
+    if (st.progress.unlocked.indexOf(st.loc) < 0) st.progress.unlocked.push(st.loc);
     st.bin = Object.assign({ raw: 0, ready: 0, timer: 0, scraps: 0 }, st.bin);
     st.bucketCap = st.bucketCap || 4;
     st.bucket = clamp(st.bucket || 0, 0, st.bucketCap);
     st.lessons = st.lessons || {};
     for (const k in st.lessons) if (!st.lessons[k]) st.lessons[k] = 1; // older saves stored day 0 as "not found"
     st.stats = Object.assign({ harvests: 0, earned: 0 }, st.stats);
-    st.weather = Object.assign({ raining: false, left: 0 }, st.weather);
+    st.weather = Object.assign({ raining: false, left: 0, wind: 0 }, st.weather);
     while (st.plots.length < plots.length) st.plots.push(S.newPlot(loc));
     st.plots = st.plots.slice(0, plots.length);
     st.plots.forEach((p) => {
@@ -107,6 +114,11 @@
   S.yearProg = (st) => (st.day % Farm.DAYS_PER_YEAR) / Farm.DAYS_PER_YEAR;
   S.dayOfSeason = (st) => Math.floor(st.day % Farm.DAYS_PER_SEASON) + 1;
   S.frozen = (st) => Farm.LOCATIONS[st.loc].frost && S.season(st) === 3;
+  S.cost = (st, base) => Math.round(base * Farm.LOCATIONS[st.loc].costMul);
+  S.matPrice = (st, kind) => S.cost(st, Farm.MATERIALS[kind].price);
+  S.avgLife = (st) => st.plots.reduce((a, p) => a + p.life, 0) / st.plots.length;
+  /* how readily this plot soaks up water: crusty clods and plastic both shed it */
+  S.infil = (pl) => (pl.fabric ? 0.45 : 1) * (0.35 + 0.65 * (pl.tilth / 100));
 
   /* ---------- queries used by tooltips, meters and tools ---------- */
   S.isRipe = function (pl) {
@@ -123,6 +135,7 @@
     return c.age < 1 ? c.age * 0.5 : 0.5 + c.fruit * 0.5; // trees: first half growing up, second half making fruit
   };
   S.waterLabel = (m) => (m < 12 ? "Very thirsty" : m < 30 ? "Getting dry" : m < 80 ? "Nicely watered" : "Soaked");
+  S.tilthLabel = (t) => (t < 30 ? "Hard clods" : t < 60 ? "Lumpy" : "Crumbly");
   S.lifeLabel = (l) => (l < 25 ? "Tired soil" : l < 50 ? "Waking up" : l < 75 ? "Healthy" : "Thriving");
   S.weedLabel = (w) => (w < 15 ? "Clean" : w < 45 ? "Some weeds" : "Weedy");
   S.mulchLabel = (m) => (m < 5 ? "Bare" : m < 40 ? "Thin mulch" : "Well mulched");
@@ -131,13 +144,14 @@
     const def = Farm.CROPS[pl.crop.type];
     const fit = Farm.LOCATIONS[st.loc].fit[def.id] || 1;
     const q = clamp((pl.fert * 0.5 + pl.life * 0.5) / 100, 0, 1);
-    return Math.round(def.value * (0.78 + 0.34 * q) * (0.9 + 0.1 * fit));
+    return Math.round(def.value * Farm.LOCATIONS[st.loc].valueMul * (0.78 + 0.34 * q) * (0.9 + 0.1 * fit));
   };
 
   /* ---------- the daily simulation ---------- */
   const SEASON_HEAT = [1, 1.8, 1.1, 0.5];
   const WEED_SEASON = [1, 0.9, 0.5, 0.1];
-  const RAIN_CHANCE = [0.05, 0.03, 0.05, 0.06];
+  const RAIN_CHANCE = 0.02; // per day, times the place's seasonal multiplier
+  const WIND_CHANCE = [0.012, 0.012, 0.03, 0.012];
 
   S.update = function (st, dt) {
     const loc = Farm.LOCATIONS[st.loc];
@@ -151,15 +165,23 @@
     /* a new day begins: weather rolls the dice */
     for (let d = prevDay + 1; d <= Math.floor(st.day); d++) {
       const w = st.weather;
-      if (!w.raining && Math.random() < RAIN_CHANCE[s] * loc.rain[s]) {
+      if (!w.raining && Math.random() < RAIN_CHANCE * loc.rain[s]) {
         w.raining = true;
         w.left = 5 + Math.random() * 6;
         Farm.lesson("rain");
         if (frozen) Farm.lesson("frozen");
       }
+      if (w.wind <= 0 && Math.random() < WIND_CHANCE[s] * loc.wind) {
+        w.wind = 3 + Math.random() * 2;
+        Farm.emit("wind");
+        st.plots.forEach((pl, i) => {
+          if (pl.fabric && Math.random() < 0.6) { pl.fabric = false; Farm.emit("fabricLost", i); }
+        });
+      }
       st.bin.scraps += 1;
       if (st.bin.scraps >= 45) { st.bin.scraps = 0; st.bin.raw = Math.min(12, st.bin.raw + 1); }
     }
+    if (st.weather.wind > 0) st.weather.wind -= dt;
     if (st.weather.raining) {
       st.weather.left -= dt;
       if (st.weather.left <= 0) st.weather.raining = false;
@@ -200,7 +222,11 @@
     if (frozen) evap *= 0.2;
     if (crop && !crop.dead) evap += 0.3 * Math.min(1, S.progress(pl) + 0.2);
     pl.moist -= evap * dt;
-    if (st.weather.raining) pl.moist += (covered || crop ? 3.6 : 2.6) * dt;
+    const infil = S.infil(pl);
+    if (st.weather.raining) {
+      pl.moist += (covered || crop ? 3.6 : 2.6) * infil * dt;
+      if (!covered && !crop && pl.prep === "bare") pl.tilth = Math.max(0, pl.tilth - 0.06 * dt); // raindrops seal bare soil
+    }
     if (pl.drip && pl.moist < 70) pl.moist += 5 * dt;
     pl.moist = clamp(pl.moist, 0, 100);
 
@@ -210,9 +236,12 @@
       pl.mulch = Math.max(0, pl.mulch - (chips ? 0.18 : 0.5) * dt);
       pl.life = Math.min(100, pl.life + (chips ? 0.07 : 0.05) * dt);
       pl.fert = Math.min(100, pl.fert + 0.03 * dt);
+      pl.tilth = Math.min(100, pl.tilth + 0.05 * dt);
     } else if (!crop && pl.prep === "bare") {
       pl.life = Math.max(0, pl.life - 0.015 * dt); // bare soil slowly loses its life
     }
+    if (pl.fabric) pl.life = Math.max(0, pl.life - 0.012 * dt); // plastic feeds nothing
+    pl.tilth = clamp(pl.tilth + (0.02 * (pl.life / 100) - (pl.till ? 0.06 : 0)) * dt, 0, 100); // tilled soil slumps back
 
     /* --- no-dig: grass dying under the mulch --- */
     if (pl.smothering) {
@@ -222,6 +251,7 @@
         pl.prep = "bare";
         pl.life = Math.min(100, pl.life + 10);
         pl.fert = Math.min(100, pl.fert + 6);
+        pl.tilth = Math.min(100, pl.tilth + 25);
         Farm.emit("smothered", i);
       }
     }
@@ -229,6 +259,8 @@
     /* --- weeds: bare soil is an invitation --- */
     if (pl.prep !== "grass") {
       let rate = (covered ? 0.1 : 0.5) * WEED_SEASON[s] * (pl.moist > 15 ? 1 : 0.3);
+      if (pl.fabric) rate = 0.01;
+      if (pl.noWeeds > 0) { rate *= 0.05; pl.noWeeds -= dt; }
       if (crop && S.progress(pl) > 0.4) rate *= 0.6;
       pl.weeds = clamp(pl.weeds + rate * dt, 0, 100);
       if (pl.weeds > 30) Farm.lesson("weeds");
@@ -237,16 +269,19 @@
 
     /* --- the crop --- */
     if (!crop || crop.dead) return;
-    if (def.frostDie && s === 3) {
+    if ((def.frostDie && s === 3) || (def.tender && loc.frost && s === 3)) {
       crop.dead = true;
-      Farm.toast("🥀 The first frost flattened your " + def.name.toLowerCase() + ". Click it to clear.");
+      Farm.toast("🥀 The cold killed your " + def.name.toLowerCase() + ". Click it to clear.");
+      Farm.lesson("tender");
       return;
     }
     const fit = loc.fit[def.id] || 0.8;
     const w = pl.moist >= 30 ? 1 : pl.moist >= 12 ? 0.4 + (0.6 * (pl.moist - 12)) / 18 : 0.1;
-    const soil = 0.55 + 0.5 * clamp((pl.fert * 0.6 + pl.life * 0.4) / 100, 0, 1);
+    const soil = 0.5 + 0.55 * clamp((pl.fert * 0.45 + pl.life * 0.35 + pl.tilth * 0.2) / 100, 0, 1);
+    let sm = def.season[s];
+    if (!loc.frost && s === 3 && !def.frostDie) sm = Math.max(sm, 0.7); // mild winters keep crops growing
     const weedF = 1 - 0.5 * clamp(pl.weeds / 100, 0, 1);
-    const rate = fit * def.season[s] * w * soil * weedF * (crop.fed ? 1.3 : 1);
+    const rate = fit * sm * w * soil * weedF * (crop.fed ? 1.3 : 1);
 
     if (def.kind === "tree") {
       if (crop.age < 1) crop.age = Math.min(1, crop.age + (dt * rate) / def.matureDays);

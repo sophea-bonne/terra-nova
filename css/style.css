@@ -217,3 +217,16 @@ label { display: block; font-weight: bold; margin-bottom: 6px; }
     background: rgba(60, 50, 24, .9); color: #fff1c9; padding: 8px 12px; border-radius: 12px; text-align: center; font-size: 13px; pointer-events: none;
   }
 }
+
+/* ---------- levels and goals ---------- */
+.tool em { font-style: normal; }
+.tool.blocked { filter: grayscale(.8); opacity: .75; }
+.place.locked { opacity: .55; }
+.place .btn:disabled { filter: grayscale(.7); cursor: not-allowed; transform: none; }
+.hero .lvl { position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,.9); border-radius: 10px; padding: 2px 9px; font-size: 11px; font-weight: bold; color: var(--green-d); }
+.goals { display: flex; flex-direction: column; gap: 10px; margin: 14px 0; }
+.goal { background: #fff; border: 2px solid var(--line); border-radius: 12px; padding: 8px 12px; font-size: 14px; }
+.goal.done { border-color: #a9d58a; background: #f4fbe9; }
+.goal .bar { height: 8px; background: #eadfc6; border-radius: 4px; margin-top: 6px; overflow: hidden; }
+.goal .bar i { display: block; height: 100%; background: var(--green); }
+.levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 10px; }

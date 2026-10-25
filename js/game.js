@@ -68,6 +68,11 @@
   Game.setTool = function (tool) {
     const A = Act();
     const ui = Game.ui;
+    if (tool === "tractor" && Farm.LOCATIONS[Game.state.loc].kit === "none") {
+      Farm.lesson("steep");
+      Farm.toast("⛰️ These slopes are far too steep for a tractor. It would tip over. You'll have to work the soil another way.");
+      return;
+    }
     if (tool !== "tractor") {
       const f = A.farmer;
       f.queue = f.queue.filter((j) => j.type !== "mount");
@@ -107,6 +112,8 @@
       case "soil":
         if (ui.soil === "compost") return { type: "compost", plot: i, x: wx };
         if (ui.soil === "feed") return { type: "feed", plot: i, x: wx };
+        if (ui.soil === "fabric") return { type: "fabric", plot: i, x: wx };
+        if (ui.soil === "herbicide") return { type: "herbicide", plot: i, x: wx };
         return { type: "mulch", plot: i, x: wx, mat: ui.soil };
     }
     return null;
@@ -145,6 +152,7 @@
     const A = Act();
     Farm.sound.blip(0, 0.001, "sine", 0.0001); // wakes the audio context on first tap
     if (Game.hitTractor(x, y)) {
+      if (Farm.LOCATIONS[s.loc].kit === "none") return Game.setTool("tractor");
       Game.setTool(Game.ui.tool === "tractor" ? "hand" : "tractor");
       return;
     }
@@ -175,9 +183,9 @@
 
   /* ---------- shopping ---------- */
   Game.buy = function (kind) {
-    const s = Game.state, m = Farm.MATERIALS[kind];
-    if (s.money < m.price) return Farm.toast(`${m.name} costs ${Farm.money(m.price)}.`);
-    s.money -= m.price;
+    const s = Game.state, m = Farm.MATERIALS[kind], price = Farm.sim.matPrice(s, kind);
+    if (s.money < price) return Farm.toast(`${m.name} costs ${Farm.money(price)}.`);
+    s.money -= price;
     s.inv[kind] += 1;
     Farm.sound.blip(520, 0.08, "triangle", 0.05, 700);
     Game.markDirty();
@@ -186,12 +194,39 @@
   Game.buyBucket = function () {
     const s = Game.state;
     if (s.bucketCap >= 8) return Farm.toast("You already have the big bucket.");
-    if (s.money < Farm.PRICES.bigBucket) return Farm.toast(`A bigger bucket costs ${Farm.money(Farm.PRICES.bigBucket)}.`);
-    s.money -= Farm.PRICES.bigBucket;
+    const price = Farm.sim.cost(s, Farm.PRICES.bigBucket);
+    if (s.money < price) return Farm.toast(`A bigger bucket costs ${Farm.money(price)}.`);
+    s.money -= price;
     s.bucketCap = 8;
     Farm.toast("🪣 Bigger bucket! Eight pours per fill.");
     Game.markDirty();
     Farm.emit("inventory");
+  };
+
+  /* ---------- levels ---------- */
+  /* Starts a fresh farm in another place; field notes, unlocked levels and your name carry over. */
+  Game.travel = async function (locId) {
+    const s = Game.state;
+    if (!s) return;
+    await Game.save();
+    const next = Farm.sim.newState(s.name, locId, { progress: s.progress, lessons: s.lessons });
+    Game.start(next);
+  };
+
+  /* checks the level goals; returns the list for the UI and unlocks the next level when all are met */
+  Game.goals = function () {
+    const s = Game.state, goals = Farm.GOALS[s.loc] || [];
+    const list = goals.map((g) => ({ text: g.text, val: Math.min(g.max, g.val(s)), max: g.max, done: g.val(s) >= g.max }));
+    const all = list.length && list.every((g) => g.done);
+    if (all && !s.progress.done[s.loc]) {
+      s.progress.done[s.loc] = true;
+      const nxt = Farm.LEVELS[Farm.LEVELS.indexOf(s.loc) + 1];
+      if (nxt && s.progress.unlocked.indexOf(nxt) < 0) s.progress.unlocked.push(nxt);
+      Game.markDirty();
+      Game.save();
+      Farm.emit("leveldone", nxt);
+    }
+    return list;
   };
 
   Game.setSpeed = function (n) {

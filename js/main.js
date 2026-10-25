@@ -49,6 +49,17 @@
     ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     if (season === 2) { ctx.fillStyle = "rgba(255,170,60,.06)"; ctx.fillRect(0, 0, w, h); }
     if (season === 3) { ctx.fillStyle = "rgba(170,205,255,.1)"; ctx.fillRect(0, 0, w, h); }
+    if (st.weather.wind > 0) {
+      ctx.strokeStyle = "rgba(255,245,220,.5)";
+      ctx.lineWidth = 1.5;
+      for (const d of DROPS.slice(0, 40)) {
+        const x = ((d.x + time * 0.9 * d.s) % 1.2) * w - 0.1 * w, y = d.y * h;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x - 46 * d.s, y + Math.sin(time * 4 + d.x * 20) * 3);
+        ctx.stroke();
+      }
+    }
     if (!st.weather.raining) return;
     const snow = Farm.LOCATIONS[st.loc].frost && season === 3;
     ctx.fillStyle = snow ? "rgba(210,225,240,.12)" : "rgba(50,70,100,.14)";
@@ -98,7 +109,9 @@
       if (!pl.crop) return;
       slotsFor(i, pl.crop.type).forEach((slot) => ents.push({ y: slot.y, f: () => Farm.plants.draw(ctx, st, pl, slot, time) }));
     });
-    ents.push({ y: W.barn.y, f: () => A.barn(ctx, W.barn.x, W.barn.y) });
+    const loc = Farm.LOCATIONS[st.loc];
+    const yard = loc.kit === "rototiller";
+    ents.push({ y: W.barn.y, f: () => A.barn(ctx, W.barn.x, W.barn.y, loc.scale === "yard" ? 0.62 : 1) });
     ents.push({ y: 346, f: () => { A.hay(ctx, 1230, 336); A.hay(ctx, 1198, 350); } });
     ents.push({ y: W.hose.y, f: () => A.hose(ctx, W.hose.x, W.hose.y, live && st.bucket === 0 && g.ui.tool === "water", time) });
     ents.push({ y: W.bin.y, f: () => A.bin(ctx, W.bin.x, W.bin.y, st.bin, time) });
@@ -108,14 +121,20 @@
     const farmer = live ? Farm.actors.farmer : demoFarmer;
     const tractor = live ? Farm.actors.tractor : demoTractor;
     const mounted = live && farmer.mounted;
-    if (!mounted) {
-      const carry = live && (st.bucket > 0 || ["water", "fill"].includes(Farm.actors.currentJobType()));
+    if (!mounted || yard) {
+      const carry = live && !mounted && (st.bucket > 0 || ["water", "fill"].includes(Farm.actors.currentJobType()));
+      let f = farmer;
+      if (mounted && yard) {
+        // walking behind the rototiller, hands on the handlebars
+        const dir = tractor.face === "left" ? -1 : 1;
+        f = Object.assign({}, farmer, { x: tractor.x - dir * 56, y: tractor.y, face: dir < 0 ? "left" : "right", walking: tractor.driving, phase: time * 9, pose: "none" });
+      }
       ents.push({
-        y: farmer.y + 1,
-        f: () => A.farmer(ctx, Object.assign({}, farmer, { carry, level: live ? st.bucket / st.bucketCap : 0 }), time),
+        y: f.y + 1,
+        f: () => A.farmer(ctx, Object.assign({}, f, { carry, level: live ? st.bucket / st.bucketCap : 0 }), time),
       });
     }
-    ents.push({ y: tractor.y + 1, f: () => A.tractor(ctx, tractor, time, mounted) });
+    ents.push({ y: tractor.y + 1, f: () => (yard ? A.rototiller(ctx, tractor, time) : A.tractor(ctx, tractor, time, mounted)) });
 
     ents.sort((a, b) => a.y - b.y).forEach((e) => e.f());
 
