@@ -566,26 +566,28 @@
     }
     ctx.stroke();
   }
+  const PH = 22; // height of the meters above each plot
   function pill(ctx, x, y, w, icon, frac, color, label, pulse) {
-    ctx.fillStyle = "rgba(255,252,238,.9)";
-    rr(ctx, x, y, w, 17, 8.5);
+    ctx.fillStyle = "rgba(255,252,238,.94)";
+    rr(ctx, x, y, w, PH, PH / 2);
     ctx.fill();
-    ctx.strokeStyle = pulse ? "#f2b632" : "rgba(120,90,40,.25)";
-    ctx.lineWidth = pulse ? 2 : 1;
+    ctx.strokeStyle = pulse ? "#f2b632" : "rgba(120,90,40,.3)";
+    ctx.lineWidth = pulse ? 2.5 : 1;
     ctx.stroke();
-    icon(ctx, x + 10, y + 8.6, 5.2, color);
+    icon(ctx, x + 13, y + PH / 2 + 0.5, 7, color);
     if (label) {
-      ctx.fillStyle = "#6a5a35";
-      ctx.font = `bold ${w < 70 ? 9 : 10}px 'Trebuchet MS', sans-serif`;
+      ctx.fillStyle = "#5e4e2a";
+      ctx.font = `bold ${w < 84 ? 10 : 12}px 'Trebuchet MS', sans-serif`;
       ctx.textBaseline = "middle";
-      ctx.fillText(label, x + 20, y + 9);
+      ctx.fillText(label, x + 26, y + PH / 2 + 0.5);
     } else {
-      ctx.fillStyle = "rgba(90,70,30,.18)";
-      rr(ctx, x + 20, y + 5.5, w - 28, 6, 3);
+      const bx = x + 26, bw = w - 34;
+      ctx.fillStyle = "rgba(90,70,30,.2)";
+      rr(ctx, bx, y + 6.5, bw, 9, 4.5);
       ctx.fill();
       if (frac > 0.01) {
         ctx.fillStyle = color;
-        rr(ctx, x + 20, y + 5.5, Math.max(6, (w - 28) * clamp(frac, 0, 1)), 6, 3);
+        rr(ctx, bx, y + 6.5, Math.max(9, bw * clamp(frac, 0, 1)), 9, 4.5);
         ctx.fill();
       }
     }
@@ -594,53 +596,69 @@
   A.plotStrip = function (ctx, st, i, time) {
     const pl = st.plots[i], r = Farm.world.plots[i];
     const S = Farm.sim;
-    const y = r.y - 25;
-    const k = r.w / 230; // beds are narrower in the back yard
+    const y = r.y - 31;
+    const k = r.w / 270; // the meters shrink a little over narrower beds
     const ripe = S.isRipe(pl);
     const grass = pl.prep === "grass" && !pl.smothering;
+    const growing = (pl.crop && !pl.crop.dead) || pl.smothering;
     /* water */
     if (!grass || pl.moist > 0) {
-      const low = pl.moist < 20 && (pl.crop || pl.smothering);
-      pill(ctx, r.x, y, 70 * k, iconDrop, pl.moist / 100, low ? "#e0833a" : "#3c9bea", null, low && Math.sin(time * 6) > 0);
+      const low = pl.moist < 28 && growing;
+      pill(ctx, r.x, y, 90 * k, iconDrop, pl.moist / 100, low ? "#e0602a" : "#3c9bea", null, low && Math.sin(time * 6) > 0);
     }
     /* growth / progress */
-    const gx = r.x + 76 * k;
+    const gx = r.x + 95 * k, gw = 104 * k;
     if (pl.crop && !pl.crop.dead) {
       const f = S.progress(pl);
-      pill(ctx, gx, y, 78 * k, iconSprout, f, ripe ? "#e5a91d" : "#5fa83a", ripe ? "Ready!" : null, ripe && Math.sin(time * 5) > 0);
+      pill(ctx, gx, y, gw, iconSprout, f, ripe ? "#e5a91d" : "#5fa83a", ripe ? "Ready!" : null, ripe && Math.sin(time * 5) > 0);
     } else if (pl.crop && pl.crop.dead) {
-      pill(ctx, gx, y, 78 * k, iconSprout, 0, "#a08060", "Withered");
+      pill(ctx, gx, y, gw, iconSprout, 0, "#a08060", "Withered");
     } else if (pl.smothering) {
-      pill(ctx, gx, y, 78 * k, iconSprout, pl.smother, "#a77d3c", null);
+      pill(ctx, gx, y, gw, iconSprout, pl.smother, "#a77d3c", null);
     } else if (grass) {
-      pill(ctx, gx, y, 78 * k, iconSprout, 0, "#7fae55", "Unprepared");
+      pill(ctx, gx, y, gw, iconSprout, 0, "#7fae55", "Unprepared");
     } else {
-      pill(ctx, gx, y, 78 * k, iconSprout, 0, "#b99b6a", "Ready to sow");
+      pill(ctx, gx, y, gw, iconSprout, 0, "#b99b6a", "Ready to sow");
     }
     /* soil life */
-    const lx = r.x + 160 * k;
-    ctx.fillStyle = "rgba(255,252,238,.9)";
-    rr(ctx, lx, y, 52 * k, 17, 8.5);
+    const lx = r.x + 204 * k, lw = 66 * k;
+    ctx.fillStyle = "rgba(255,252,238,.94)";
+    rr(ctx, lx, y, lw, PH, PH / 2);
     ctx.fill();
-    ctx.strokeStyle = "rgba(120,90,40,.25)";
+    ctx.strokeStyle = "rgba(120,90,40,.3)";
     ctx.lineWidth = 1;
     ctx.stroke();
-    iconWorm(ctx, lx + 11, y + 8.8, 5.5, "#d9837f");
+    iconWorm(ctx, lx + 14, y + PH / 2 + 0.5, 7, "#d9837f");
     const n = clamp(Math.round(pl.life / 25), 0, 4);
-    for (let q = 0; q < 4; q++) ell(ctx, lx + (26 + q * 6.4) * (k > 0.9 ? 1 : 0.9), y + 8.6, 2.3, 2.3, q < n ? "#6f9d3c" : "rgba(90,70,30,.22)");
+    for (let q = 0; q < 4; q++) ell(ctx, lx + 28 * (k > 0.9 ? 1 : 0.9) + q * 8 * (k > 0.9 ? 1 : 0.85), y + PH / 2 + 0.5, 3, 3, q < n ? "#6f9d3c" : "rgba(90,70,30,.25)");
+
+    /* a big, bobbing droplet over any planted plot that needs water */
+    if (growing && pl.moist < 28) {
+      const urgent = pl.moist < 12;
+      const bob = Math.sin(time * (urgent ? 8 : 5)) * (urgent ? 4 : 2.5);
+      const bx = r.x + 24, by = r.y + 24 + bob;
+      ctx.fillStyle = "rgba(0,0,0,.18)";
+      ell(ctx, bx + 2, by + 17, 11, 4, "rgba(0,0,0,.18)");
+      ell(ctx, bx, by, 16, 16, urgent ? "#d8402a" : "#ee8a2e");
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      iconDrop(ctx, bx, by + 1, 8, "#fff");
+    }
     /* weeds warning */
     if (pl.weeds > 35) {
-      ctx.fillStyle = "rgba(255,246,214,.95)";
-      rr(ctx, r.x + r.w - 17, y, 17, 17, 6);
+      const wx = r.x + r.w - 26, wy = r.y + 8;
+      ctx.fillStyle = "rgba(255,246,214,.96)";
+      rr(ctx, wx, wy, 22, 22, 7);
       ctx.fill();
       ctx.strokeStyle = "#d9772b";
-      ctx.lineWidth = 1.4;
+      ctx.lineWidth = 1.8;
       ctx.stroke();
       ctx.fillStyle = "#d9772b";
-      ctx.font = "bold 12px sans-serif";
+      ctx.font = "bold 15px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("!", r.x + r.w - 8.5, y + 9);
+      ctx.fillText("!", wx + 11, wy + 12);
       ctx.textAlign = "left";
     }
     if (ripe) {
@@ -648,16 +666,16 @@
       ctx.fillStyle = "rgba(255,225,120,.2)";
       rr(ctx, r.x - 5, r.y - 5, r.w + 10, r.h + 10, 18);
       ctx.fill();
-      const bx = r.x + r.w - 22, by = r.y + 4 + bob;
-      ell(ctx, bx, by, 13, 13, "#f6c443");
+      const bx = r.x + r.w - 24, by = r.y + 26 + bob;
+      ell(ctx, bx, by, 15, 15, "#f6c443");
       ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 3.4;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       ctx.beginPath();
-      ctx.moveTo(bx - 5, by);
-      ctx.lineTo(bx - 1, by + 4);
-      ctx.lineTo(bx + 6, by - 4);
+      ctx.moveTo(bx - 6, by);
+      ctx.lineTo(bx - 1, by + 5);
+      ctx.lineTo(bx + 7, by - 5);
       ctx.stroke();
     }
   };

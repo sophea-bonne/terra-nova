@@ -11,8 +11,8 @@
     for (let c = 0; c < 3; c++) plots.push({ x: 200 + c * 265, y: r ? 395 : 170, w: 230, h: 140 });
   /* the back yard uses smaller raised beds with paths between them; the farms use big fields */
   const LAYOUTS = {
-    yard: { w: 190, h: 120, xs: [270, 520, 770], ys: [200, 405] },
-    field: { w: 230, h: 140, xs: [200, 465, 730], ys: [170, 395] },
+    yard: { w: 215, h: 135, xs: [245, 505, 765], ys: [195, 400] },
+    field: { w: 250, h: 150, xs: [170, 450, 730], ys: [168, 392] },
   };
   Farm.world = {
     layout(scale) {

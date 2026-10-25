@@ -235,3 +235,20 @@ label { display: block; font-weight: bold; margin-bottom: 6px; }
 #intro h4 { color: var(--green-d); font-size: 17px; margin-bottom: 6px; }
 #intro p { font-size: 14px; line-height: 1.55; margin-bottom: 10px; }
 #intro .foot { display: flex; justify-content: space-between; align-items: center; color: var(--ink-soft); font-size: 12px; letter-spacing: .15em; }
+
+/* ---------- compact toolbar ---------- */
+#toolbar { gap: 5px; padding-bottom: 6px; }
+.tools { gap: 6px; }
+.tool { min-width: 62px; padding: 3px 9px 3px; font-size: 10.5px; gap: 0; border-radius: 12px; }
+.tool span { font-size: 17px; }
+#tray { padding: 5px; gap: 6px; border-radius: 14px; }
+#tray .card { flex: 0 0 122px; padding: 5px 6px 6px; }
+#tray .ic { font-size: 20px; }
+#tray b { font-size: 12px; }
+#tray small { font-size: 9.5px; line-height: 1.3; }
+#tray .price { font-size: 10px; }
+#tray .buy { padding: 2px 6px; font-size: 10px; }
+#tray .card { flex-basis: 112px; }
+#tray .card small { display: none; }
+#tray .card:hover small, #tray .card.sel small { display: block; }
+#tray .card.wide small { display: block; }

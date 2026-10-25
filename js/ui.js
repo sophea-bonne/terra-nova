@@ -71,7 +71,7 @@
       const crops = loc.crops
         .map((c) => {
           const [t, k] = fitTag(loc, c);
-          return `<li title="${esc(Farm.CROPS[c].name)}: ${t}"><span>${Farm.CROPS[c].icon}</span><em class="${k}">${t}</em></li>`;
+          return `<li><span>${Farm.CROPS[c].icon} ${Farm.CROPS[c].name.replace(/ \(.*\)| trees/, "")}</span><em class="${k}">${t}</em></li>`;
         })
         .join("");
       const card = el("div", "place" + (open ? "" : " locked"));
