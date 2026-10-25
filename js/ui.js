@@ -249,6 +249,7 @@
       title = `${d.icon} ${d.name}`;
       if (pl.crop.dead) extra = "Withered. Click to clear.";
       else if (S.isRipe(pl)) extra = "Ripe! Click to harvest.";
+      else if (d.species === "apple" && S.season(s) === 3) extra = "Dormant for winter. Bare branches are normal; it leafs out in spring.";
       else if (d.kind === "tree") extra = pl.crop.age < 1 ? `Growing up: ${Math.round(pl.crop.age * 100)}%` : `Making fruit: ${Math.round(pl.crop.fruit * 100)}%`;
       else extra = `Growing: ${Math.round(pl.crop.p * 100)}%`;
     } else if (pl.smothering) { title = "🍂 Smothering the grass"; extra = `${Math.round(pl.smother * 100)}% done`; }

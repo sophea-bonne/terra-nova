@@ -271,8 +271,10 @@
     if (!crop || crop.dead) return;
     if ((def.frostDie && s === 3) || (def.tender && loc.frost && s === 3)) {
       crop.dead = true;
-      Farm.toast("🥀 The cold killed your " + def.name.toLowerCase() + ". Click it to clear.");
-      Farm.lesson("tender");
+      if (def.tender) {
+        Farm.toast("🥀 A freeze killed your " + def.name.toLowerCase() + ". Click to clear.");
+        Farm.lesson("tender");
+      } else Farm.toast("🥀 " + def.name + " is an annual: it dies back when winter comes. Click to clear.");
       return;
     }
     const fit = loc.fit[def.id] || 0.8;
