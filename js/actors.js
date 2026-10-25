@@ -572,16 +572,8 @@
   function buildTill(job) {
     const r = W.plots[job.plot];
     const x0 = r.x - 24, x1 = r.x + r.w + 56;
-    const ys = [r.y + 36, r.y + 76, r.y + 116];
-    const pts = [
-      { x: x0, y: ys[0] },
-      { x: x1, y: ys[0], till: true },
-      { x: x1, y: ys[1] },
-      { x: x0, y: ys[1], till: true },
-      { x: x0, y: ys[2] },
-      { x: x1, y: ys[2], till: true },
-    ];
-    return pts;
+    const y = r.y + 80; // one pass straight through the middle: a small plot needs no more
+    return [{ x: x0, y }, { x: x1, y, till: true }];
   }
 
   Act.tillCheck = function (plotIdx) {
@@ -664,7 +656,7 @@
   }
 
   /* the tractor is quick; a hand-pushed rototiller is not */
-  const speeds = () => (Farm.LOCATIONS[st().loc].kit === "rototiller" ? { free: 200, till: 130 } : { free: 450, till: 400 });
+  const speeds = () => (Farm.LOCATIONS[st().loc].kit === "rototiller" ? { free: 800, till: 600 } : { free: 900, till: 700 });
 
   function drive(dt, dx, dy, d, speed) {
     const T = tractor;

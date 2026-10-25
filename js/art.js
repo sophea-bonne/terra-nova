@@ -220,7 +220,7 @@
       if (pl.till) {
         const rows = 6;
         for (let j = 0; j < rows; j++) {
-          const f = clamp(pl.tillAmt * rows - j, 0, 1);
+          const f = clamp(pl.tillAmt, 0, 1); // all furrows appear together as the machine sweeps across
           if (f <= 0) continue;
           const yy = r.y + 14 + (j * (r.h - 28)) / (rows - 1);
           const len = (r.w - 16) * f;
