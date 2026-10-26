@@ -130,7 +130,7 @@
   S.matPrice = (st, kind) => S.cost(st, Farm.MATERIALS[kind].price);
   S.avgLife = (st) => st.plots.reduce((a, p) => a + p.life, 0) / st.plots.length;
   /* how readily this plot soaks up water: crusty clods and plastic both shed it */
-  S.infil = (pl) => (pl.fabric ? 0.45 : 1) * (0.35 + 0.65 * (pl.tilth / 100));
+  S.infil = (pl) => (pl.fabric ? 0.45 : 1) * (0.5 + 0.5 * (pl.tilth / 100));
 
   /* ---------- queries used by tooltips, meters and tools ---------- */
   S.isRipe = function (pl) {
@@ -160,7 +160,7 @@
   };
 
   /* ---------- the daily simulation ---------- */
-  const SEASON_HEAT = [1, 1.8, 1.1, 0.5];
+  const SEASON_HEAT = [1, 1.5, 1.1, 0.5];
   const WEED_SEASON = [1, 0.9, 0.5, 0.1];
   const SMOTHER_RATE = [1.1, 0.6, 1.1, 1.2]; // by season; adds up to one year
   const RAIN_CHANCE = 0.02; // per day, times the place's seasonal multiplier
@@ -228,7 +228,7 @@
     /* --- water --- */
     const texture = 0.7 + (loc.sand / 100) * 0.9; // sandy soil drains faster
     const spongy = 1 - 0.3 * ((pl.life + pl.fert) / 200); // humus holds water
-    let evap = 0.8 * loc.heat * SEASON_HEAT[s] * texture * spongy;
+    let evap = 0.5 * loc.heat * SEASON_HEAT[s] * texture * spongy;
     if (covered) evap *= 0.5;
     else if (pl.till) evap *= 1.25;
     if (pl.prep === "grass" && !pl.smothering) evap *= 0.7;
