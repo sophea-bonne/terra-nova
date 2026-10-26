@@ -259,9 +259,9 @@
       <li>💧 ${S.waterLabel(pl.moist)}</li>
       <li>🪱 ${S.lifeLabel(pl.life)}</li>
       <li>🌱 Fertility ${pl.fert < 30 ? "low" : pl.fert < 60 ? "medium" : "high"}</li>
-      <li>🧱 ${S.tilthLabel(pl.tilth)}</li>${pl.fabric ? "<li>🟫 Landscape fabric</li>" : ""}${pl.noWeeds > 0 ? "<li>☠️ Sprayed</li>" : ""}
-      <li>🧣 ${S.mulchLabel(pl.mulch)}</li>
-      <li>🌿 ${S.weedLabel(pl.weeds)}</li>${pl.drip ? "<li>💧 Drip line</li>" : ""}</ul>`;
+      <li>🧱 ${pl.tilth < 30 ? "Hard clods: water runs off" : pl.tilth < 60 ? "Lumpy: soaks up water slowly" : "Crumbly: soft, soaks up water"}</li>
+      <li>🍂 ${pl.mulch < 5 ? "No mulch: soil is uncovered" : pl.mulch < 40 ? "Thin mulch layer" : "Thick mulch layer"}</li>
+      <li>${pl.weeds < 15 ? "✅ No weeds" : pl.weeds < 50 ? "⚠️ Some weeds" : "⚠️ Choked by weeds: nothing grows"}</li>${pl.fabric ? "<li>🟫 Landscape fabric</li>" : ""}${pl.noWeeds > 0 ? "<li>☠️ Sprayed</li>" : ""}${pl.drip ? "<li>💧 Drip line</li>" : ""}</ul>`;
   };
   let tipTimer = 0;
   UI.showTip = function (html, x, y, ms) {
