@@ -7,7 +7,7 @@
 
   const Game = (Farm.game = {
     state: null,
-    ui: { tool: "hand", seed: null, waterMode: "bucket", soil: "straw", speed: 1 },
+    ui: { tool: "hand", seed: null, waterMode: "bucket", soil: "straw", speed: 1, machine: "rototiller" },
     dirty: false,
     saving: false,
     sinceSave: 0,
@@ -20,10 +20,12 @@
     Game.state = Farm.sim.repair(state);
     const loc = Farm.LOCATIONS[Game.state.loc];
     Farm.world.layout(loc.scale);
-    Game.ui = { tool: "hand", seed: null, waterMode: "bucket", soil: "straw", speed: 1 };
+    const owned = Game.state.tools;
+    Game.ui = { tool: "hand", seed: null, waterMode: "bucket", soil: "straw", speed: 1, machine: owned.tractor && loc.tractorOK ? "tractor" : "rototiller" };
     Game.hover = -1;
     Game.sinceSave = 0;
     Act().reset();
+    Act().tractor.kind = Game.ui.machine;
     Farm.emit("started");
   };
 
@@ -68,10 +70,10 @@
   Game.setTool = function (tool) {
     const A = Act();
     const ui = Game.ui;
-    if (tool === "tractor" && Farm.LOCATIONS[Game.state.loc].kit === "none") {
-      Farm.lesson("steep");
-      Farm.toast("⛰️ These slopes are far too steep for a tractor. It would tip over. You'll have to work the soil another way.");
-      return;
+    if (tool === "tractor") {
+      const why = Game.machineCheck(ui.machine);
+      if (why) return Farm.toast(why);
+      if (!A.isMounted()) A.tractor.kind = ui.machine;
     }
     const T = A.tractor, f = A.farmer;
     if (tool !== "tractor") {
@@ -99,16 +101,50 @@
     Farm.toast("🚜 Tractor ready. Click each plot you want tilled.");
   });
 
+  /* can this machine be used here right now? returns the reason if not */
+  Game.machineCheck = function (kind) {
+    const s = Game.state, loc = Farm.LOCATIONS[s.loc];
+    if (!s.tools[kind]) return `You don't own a ${kind} yet. Buy one in the Tools menu.`;
+    if (kind === "tractor" && !loc.tractorOK) {
+      if (loc.hills) Farm.lesson("steep");
+      return "⛰️ " + loc.tractorWhy;
+    }
+    return null;
+  };
+  /* picking a card in the Tools menu */
+  Game.selectImplement = function (id) {
+    const A = Act();
+    if (id === "shovel") return Game.setTool("shovel");
+    if (A.isMounted() && A.tractor.kind !== id) return Farm.toast("Park the machine first (click it), then pick the other one.");
+    Game.ui.machine = id;
+    Game.setTool("tractor");
+  };
+  Game.buyTool = function (id) {
+    const s = Game.state, price = Farm.sim.toolPrice(s, id);
+    if (s.tools[id]) return;
+    if (s.money < price) return Farm.toast(`The ${Farm.TOOLS[id].name.toLowerCase()} costs ${Farm.money(price)}.`);
+    s.money -= price;
+    s.tools[id] = true;
+    if (!Act().isMounted()) Act().tractor.kind = id;
+    Farm.sound.blip(520, 0.12, "triangle", 0.05, 800);
+    Farm.toast(`🛠️ You bought the ${Farm.TOOLS[id].name.toLowerCase()}!`);
+    Game.markDirty();
+    Farm.emit("inventory");
+  };
+
   function jobFor(i, wx) {
     const s = Game.state, ui = Game.ui, pl = s.plots[i], S = Farm.sim;
     let tool = ui.tool;
     if (tool === "seed" && !ui.seed) tool = "hand"; // no seed picked: clicking a plot clears, weeds or harvests it
+    if (tool === "shovel" && pl.crop) tool = "hand"; // a planted bed can't be dug: harvest, clear or weed it instead
     switch (tool) {
       case "hand":
         if (S.isRipe(pl)) return { type: "harvest", plot: i, x: wx };
         if (pl.crop && pl.crop.dead) return { type: "clear", plot: i, x: wx };
-        if (pl.weeds >= 15) return { type: "weed", plot: i, x: wx };
+        if (pl.weeds >= Farm.sim.WEED_SEEN) return { type: "weed", plot: i, x: wx };
         return null;
+      case "shovel":
+        return { type: "dig", plot: i, x: wx };
       case "seed":
         return ui.seed ? { type: "plant", plot: i, x: wx, crop: ui.seed } : null;
       case "water":
@@ -144,7 +180,8 @@
     return -1;
   };
   Game.hitTractor = (x, y) => {
-    const t = Act().tractor;
+    const t = Act().tractor, own = Game.state.tools;
+    if (!own.rototiller && !own.tractor) return false; // nothing parked there yet
     return inBox(x, y, t.x, t.y, 75, 70, 92, 8);
   };
   Game.hitHose = (x, y) => inBox(x, y, W.hose.x, W.hose.y, 56, 56, 80, 12);
@@ -156,10 +193,13 @@
     const A = Act();
     Farm.sound.blip(0, 0.001, "sine", 0.0001); // wakes the audio context on first tap
     if (Game.hitTractor(x, y)) {
-      if (Farm.LOCATIONS[s.loc].kit === "none") return Game.setTool("tractor");
-      if (Game.ui.tool === "tractor") A.dismount(); // clicking the tractor itself cancels the rest of the queue and parks it
-      Game.setTool(Game.ui.tool === "tractor" ? "hand" : "tractor");
-      return;
+      if (Game.ui.tool === "tractor") {
+        A.dismount(); // clicking the machine itself cancels the rest of the queue and parks it
+        return Game.setTool("hand");
+      }
+      const kind = s.tools.tractor && Farm.LOCATIONS[s.loc].tractorOK ? "tractor" : s.tools.rototiller ? "rototiller" : null;
+      if (!kind) return Farm.toast("You don't own a machine yet. Open the Tools menu to buy one.");
+      return Game.selectImplement(kind);
     }
     const i = Game.plotAt(x, y);
     if (i >= 0) {

@@ -104,6 +104,7 @@
 
   A.treeline = function (ctx, st, vis) {
     const c = A.colors(st);
+    if (Farm.LOCATIONS[st.loc].scenery === "swiss") return A.swissBackdrop(ctx, st, vis, c);
     if (Farm.LOCATIONS[st.loc].hills) {
       /* Fallbrook/Rainbow: hazy ridges, golden chaparral slopes and terraced avocado groves */
       const sky = ctx.createLinearGradient(0, vis.y0, 0, 120);
@@ -249,6 +250,162 @@
     ell(ctx, x, y + 2, 20 * k, 5 * k, "rgba(20,35,8,.2)");
     for (const [dx, dy, r, c] of [[-10, -6, 9, [136, 148, 104]], [8, -8, 10, [150, 158, 112]], [0, -14, 8, [124, 140, 98]], [16, -2, 7, [140, 150, 106]]])
       ell(ctx, x + dx * k, y + dy * k, r * k, r * 0.75 * k, rgb(c));
+  };
+
+  /* ---------- Geneva: Jura / Salève-style ridges (about 1,500 m), forest, the lake and its fountain ---------- */
+  A.swissBackdrop = function (ctx, st, vis, c) {
+    const S = Farm.sim, season = S.season(st);
+    const snowAmt = [0.25, 0, 0.3, 1][season];
+    const sky = ctx.createLinearGradient(0, vis.y0, 0, 120);
+    sky.addColorStop(0, season === 3 ? "#a9bfd4" : "#8fc4ec");
+    sky.addColorStop(1, "#eaf2f4");
+    ctx.fillStyle = sky;
+    ctx.fillRect(vis.x0 - 20, vis.y0 - 20, vis.x1 - vis.x0 + 40, 150 - vis.y0 + 20);
+
+    /* far limestone ridge: pointy but modest, with snow in the cold months */
+    const ridge = (x) => 74 - (Math.abs(Math.sin(x * 0.0065 + 0.8)) * 26 + Math.abs(Math.sin(x * 0.019 + 2)) * 9 + Math.sin(x * 0.0021) * 8);
+    ctx.fillStyle = rgb([146, 164, 190], 1);
+    ctx.beginPath();
+    ctx.moveTo(vis.x0 - 20, 150);
+    for (let x = vis.x0 - 20; x <= vis.x1 + 20; x += 8) ctx.lineTo(x, ridge(x));
+    ctx.lineTo(vis.x1 + 20, 150);
+    ctx.fill();
+    if (snowAmt > 0) {
+      ctx.fillStyle = `rgba(255,255,255,${0.9 * snowAmt})`;
+      ctx.beginPath();
+      for (let x = vis.x0 - 20; x <= vis.x1 + 20; x += 8) ctx.lineTo(x, ridge(x));
+      for (let x = vis.x1 + 20; x >= vis.x0 - 20; x -= 8) ctx.lineTo(x, ridge(x) + Math.max(0, 46 - ridge(x) + 40) * 0.28 + 3);
+      ctx.fill();
+    }
+    ctx.fillStyle = "rgba(235,240,245,.35)"; // haze
+    ctx.fillRect(vis.x0, 30, vis.x1 - vis.x0, 90);
+
+    /* forested foothills with spruce */
+    const foot = (x) => 100 - Math.sin(x * 0.009 + 4) * 14 - Math.sin(x * 0.023) * 5;
+    const fg = ctx.createLinearGradient(0, 80, 0, 150);
+    fg.addColorStop(0, rgb([70, 112, 84], season === 3 ? 1.35 : 1));
+    fg.addColorStop(1, rgb([52, 88, 66], season === 3 ? 1.2 : 0.9));
+    ctx.fillStyle = fg;
+    ctx.beginPath();
+    ctx.moveTo(vis.x0 - 20, 150);
+    for (let x = vis.x0 - 20; x <= vis.x1 + 20; x += 12) ctx.lineTo(x, foot(x));
+    ctx.lineTo(vis.x1 + 20, 150);
+    ctx.fill();
+    const rnd = Farm.rng(21);
+    for (let x = vis.x0; x < vis.x1; x += 13) {
+      const y = foot(x) + 6 + rnd() * 20, h = 10 + rnd() * 8;
+      ctx.fillStyle = rgb([40, 76, 52], 0.9 + rnd() * 0.3);
+      ctx.beginPath();
+      ctx.moveTo(x, y - h); ctx.lineTo(x - 5, y); ctx.lineTo(x + 5, y);
+      ctx.fill();
+      if (snowAmt > 0.5) { ctx.fillStyle = "rgba(255,255,255,.7)"; ctx.beginPath(); ctx.moveTo(x, y - h); ctx.lineTo(x - 2.5, y - h + 5); ctx.lineTo(x + 2.5, y - h + 5); ctx.fill(); }
+    }
+
+    /* the lake with its famous jet of water */
+    const lx0 = 360, lx1 = 900, ly = 116;
+    const lg = ctx.createLinearGradient(0, ly - 6, 0, ly + 14);
+    lg.addColorStop(0, "#8ec3e6");
+    lg.addColorStop(1, "#5e9fcf");
+    ctx.fillStyle = lg;
+    ctx.beginPath();
+    ctx.ellipse((lx0 + lx1) / 2, ly + 4, (lx1 - lx0) / 2, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,.45)";
+    ctx.lineWidth = 1.2;
+    for (let k = 0; k < 9; k++) {
+      const x = lx0 + 40 + k * 56;
+      ctx.beginPath(); ctx.moveTo(x, ly + 2 + (k % 3) * 4); ctx.lineTo(x + 18, ly + 2 + (k % 3) * 4); ctx.stroke();
+    }
+    const jx = 640;
+    const jg = ctx.createLinearGradient(0, ly - 62, 0, ly);
+    jg.addColorStop(0, "rgba(255,255,255,0)");
+    jg.addColorStop(1, "rgba(255,255,255,.9)");
+    ctx.fillStyle = jg;
+    ctx.beginPath();
+    ctx.moveTo(jx - 1.5, ly - 62); ctx.lineTo(jx + 1.5, ly - 62); ctx.lineTo(jx + 4, ly); ctx.lineTo(jx - 4, ly);
+    ctx.fill();
+
+    /* near meadow, in the season's green (or snow) */
+    const nm = (x) => 128 - Math.sin(x * 0.012 + 1) * 7 - Math.sin(x * 0.03) * 3;
+    const ng = ctx.createLinearGradient(0, 112, 0, 160);
+    ng.addColorStop(0, rgb(c.grass, 1.08));
+    ng.addColorStop(1, rgb(c.grass, 0.95));
+    ctx.fillStyle = ng;
+    ctx.beginPath();
+    ctx.moveTo(vis.x0 - 20, 170);
+    for (let x = vis.x0 - 20; x <= vis.x1 + 20; x += 12) ctx.lineTo(x, nm(x));
+    ctx.lineTo(vis.x1 + 20, 170);
+    ctx.fill();
+  };
+
+  A.spruce = function (ctx, st, x, y, k) {
+    const snow = Farm.sim.season(st) === 3 ? 0.8 : 0;
+    ell(ctx, x, y + 3, 24 * k, 6 * k, "rgba(20,35,8,.28)");
+    ctx.fillStyle = "#5a4330";
+    ctx.fillRect(x - 3 * k, y - 12 * k, 6 * k, 14 * k);
+    for (let i = 0; i < 4; i++) {
+      const w = (30 - i * 6) * k, top = y - (22 + i * 20) * k, bot = y - (6 + i * 18) * k;
+      const g = ctx.createLinearGradient(x - w, 0, x + w, 0);
+      g.addColorStop(0, "#2f5a3e");
+      g.addColorStop(0.45, "#4b8057");
+      g.addColorStop(1, "#264a34");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(x, top - 14 * k); ctx.lineTo(x - w, bot); ctx.lineTo(x + w, bot);
+      ctx.fill();
+      if (snow) { ctx.fillStyle = `rgba(255,255,255,${snow})`; ctx.beginPath(); ctx.moveTo(x, top - 14 * k); ctx.lineTo(x - w * 0.55, bot - 8 * k); ctx.lineTo(x + w * 0.55, bot - 8 * k); ctx.fill(); }
+    }
+  };
+
+  /* a Swiss chalet: dark timber, shallow wide roof, balcony with red geraniums */
+  A.chalet = function (ctx, x, y) {
+    ctx.save();
+    ctx.translate(x, y);
+    ell(ctx, 0, 6, 140, 12, "rgba(20,35,8,.25)");
+    const wood = ctx.createLinearGradient(-100, 0, 100, 0);
+    wood.addColorStop(0, "#7d5232");
+    wood.addColorStop(1, "#946239");
+    ctx.fillStyle = "#f1e6d0"; // whitewashed ground floor
+    ctx.fillRect(-100, -50, 200, 50);
+    ctx.fillStyle = wood;
+    ctx.fillRect(-100, -104, 200, 54);
+    ctx.strokeStyle = "rgba(40,22,8,.35)";
+    ctx.lineWidth = 1.4;
+    for (let yy = -100; yy < -50; yy += 9) { ctx.beginPath(); ctx.moveTo(-100, yy); ctx.lineTo(100, yy); ctx.stroke(); }
+    ctx.fillStyle = "#6a5648"; // wide, low roof
+    ctx.beginPath();
+    ctx.moveTo(-126, -98); ctx.lineTo(0, -150); ctx.lineTo(126, -98); ctx.lineTo(112, -92); ctx.lineTo(0, -138); ctx.lineTo(-112, -92);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#7d6858";
+    ctx.beginPath();
+    ctx.moveTo(-108, -96); ctx.lineTo(0, -140); ctx.lineTo(108, -96);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#5c3a28";
+    rr(ctx, -16, -48, 32, 48, 3);
+    ctx.fill();
+    for (const wx of [-78, 46]) {
+      ctx.fillStyle = "#cfe6f2";
+      rr(ctx, wx, -42, 30, 28, 2);
+      ctx.fill();
+      ctx.fillStyle = "#b8392b";
+      ctx.fillRect(wx - 7, -44, 7, 32);
+      ctx.fillRect(wx + 30, -44, 7, 32);
+    }
+    /* balcony */
+    ctx.fillStyle = "#5a3a20";
+    ctx.fillRect(-84, -62, 168, 5);
+    ctx.fillStyle = "#6a4528";
+    for (let bx = -80; bx <= 80; bx += 10) ctx.fillRect(bx, -78, 3, 16);
+    ctx.fillRect(-84, -80, 168, 3);
+    for (let bx = -74; bx <= 74; bx += 17) ell(ctx, bx, -83, 5, 4, "#d9344a");
+    for (const wx of [-52, 30]) {
+      ctx.fillStyle = "#cfe6f2";
+      rr(ctx, wx, -98, 22, 16, 2);
+      ctx.fill();
+    }
+    ctx.restore();
   };
 
   A.fence = function (ctx, vis) {
@@ -560,7 +717,7 @@
 
     /* weeds */
     if (!isGrass) {
-      const n = Math.floor(v.weeds.length * clamp(pl.weeds / 45, 0, 1));
+      const n = pl.weeds < Farm.sim.WEED_SEEN ? 0 : Math.max(1, Math.floor(v.weeds.length * clamp(pl.weeds / 45, 0, 1)));
       for (let k = 0; k < n; k++) {
         const w = v.weeds[k];
         const big = 1.6 + Math.min(1, pl.weeds / 60) * 0.8;

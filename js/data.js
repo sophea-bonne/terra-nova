@@ -19,12 +19,12 @@
       id: "sunnyvale", level: 1,
       name: "Sunnyvale back yard", short: "Sunnyvale", place: "Sunnyvale, California", scale: "yard", bed: "bed",
       tag: "A small back yard. Everything is done by hand.",
-      intro: "It's the end of a long, dry summer. The back yard soil is baked into hard clumps and thirsty. You can't dig it by hand, so choose: rent a rototiller, or build the soil up with compost and mulch.",
+      intro: "It's the end of a long, dry summer. The back yard soil is baked into hard clumps and thirsty. It's too hard to dig by hand at first. You only have a shovel for now: buy a rototiller from the Tools menu, or build the soil up with compost and mulch.",
       sand: 7, silt: 46, clay: 47,
       soilName: "Silty clay",
       soilNote: "Rich and fertile, and it holds water for a long time. But dry clay bakes into hard clods, and it won't soak up water until it has been softened up.",
       fert: 58, life: 28, tilth: 12, moist: 4, heat: 1.0, frost: false, dryGrass: true, wind: 0.6, hills: false,
-      kit: "rototiller", costMul: 1, valueMul: 1, money: 260, startDay: 680, labor: 1, pour: 48,
+      tractorOK: false, tractorWhy: "A back yard is far too small for a tractor.", costMul: 1, valueMul: 1, money: 260, startDay: 680, labor: 1, pour: 48,
       rain: [0, 0, 0, 1.6],
       fit: { wheat: 1.0, cannabis: 1.0, avocado: 0.8, citrus: 1.05, apple: 1.0, olive: 1.0 },
       soilColor: [112, 84, 62],
@@ -39,7 +39,7 @@
       soilName: "Sandy loam from weathered granite",
       soilNote: "Drains very quickly, holds few nutrients and bakes in the sun. The strong autumn winds here will carry off anything that isn't weighed down.",
       fert: 14, life: 10, tilth: 60, moist: 3, heat: 1.2, frost: false, dryGrass: true, wind: 2.4, hills: true,
-      kit: "none", costMul: 5, valueMul: 5, money: 2200, startDay: 680, labor: 4.5, pour: 32,
+      tractorOK: false, tractorWhy: "These slopes are far too steep for a tractor. It would tip over.", costMul: 5, valueMul: 5, money: 2200, startDay: 680, labor: 4.5, pour: 32,
       rain: [0, 0, 0, 1.0],
       fit: { wheat: 0.75, cannabis: 0.9, avocado: 1.1, citrus: 1.0, apple: 0.7, olive: 1.0 },
       soilColor: [214, 178, 128],
@@ -54,7 +54,7 @@
       soilName: "Glacial moraine loam",
       soilNote: "A near-perfect mix of sand, silt and clay with good crumb structure. Cold winters slow everything down and freeze the soil.",
       fert: 66, life: 50, tilth: 60, moist: 40, heat: 0.8, frost: true, dryGrass: false, wind: 1, hills: false,
-      kit: "tractor", costMul: 2, valueMul: 2, money: 700, startDay: 0, labor: 1.5, pour: 40,
+      tractorOK: true, scenery: "swiss", costMul: 2, valueMul: 2, money: 1500, startDay: 0, labor: 1.5, pour: 40,
       rain: [1, 1, 1, 1],
       fit: { wheat: 1.1, cannabis: 0.7, avocado: 0.4, citrus: 0.5, apple: 1.15, olive: 0.6 },
       soilColor: [128, 98, 70],
@@ -69,7 +69,7 @@
       soilName: "Clay loam",
       soilNote: "Fertile ground that cracks in the dry summer.",
       fert: 52, life: 40, tilth: 50, moist: 30, heat: 1.1, frost: false, dryGrass: true, wind: 1, hills: false,
-      kit: "tractor", costMul: 2, valueMul: 2, money: 700, startDay: 0, labor: 1.5, pour: 40,
+      tractorOK: true, costMul: 2, valueMul: 2, money: 1500, startDay: 0, labor: 1.5, pour: 40,
       rain: [0.8, 0.2, 1, 1.2],
       fit: { wheat: 1.1, cannabis: 0.8, avocado: 0.85, citrus: 1.0, apple: 0.85, olive: 1.15 },
       soilColor: [160, 112, 80],
@@ -149,6 +149,12 @@
     herbicide: { id: "herbicide", name: "Herbicide", icon: "☠️", price: 40, blurb: "Kills weeds and grass in a flash. Pricey, and it harms soil life. Not for planted beds." },
   };
 
+  /* the Tools menu: you start with a shovel; machines are bought. Prices scale with the size of the place. */
+  Farm.TOOLS = {
+    shovel: { id: "shovel", name: "Shovel", icon: "shovel", price: 0, blurb: "Dig a bed by hand. Slow, hard work (worse in clumpy soil), but gentle on the soil life." },
+    rototiller: { id: "rototiller", name: "Rototiller", icon: "⚙️", price: 120, blurb: "A walk-behind tiller. Quick, but it chops up the soil life. Won't bite into dry, baked ground." },
+    tractor: { id: "tractor", name: "Tractor", icon: "🚜", price: 450, blurb: "Tills a whole field fast. Needs flat, open land." },
+  };
   Farm.PRICES = { drip: 120, bigBucket: 150 };
 
   /* The "Field Notes" journal. A note unlocks the first time the matching thing happens in-game. */
@@ -209,6 +215,8 @@
       text: "Soil life slows down in the cold but doesn't disappear. Covered soil is insulated and stays a little warmer than bare ground, which is a good reason to keep a blanket of mulch on over winter." },
     { id: "nutrients", icon: "🥕", title: "Harvests take nutrients with them", hint: "",
       text: "Every crop you carry away takes minerals the soil had to give. Left alone, the soil runs down. On a big farm, people till and add fertilizer. In a garden you can give back what you took: compost, leaves and plant waste, so the soil stays fertile without any bagged fertilizer." },
+    { id: "shovel", icon: "⛏️", title: "Digging by hand", hint: "",
+      text: "Turning soil with a shovel is hard work, but it's gentle: you loosen a bed without pulverizing it, so worms and fungal threads survive far better than under a rototiller or tractor." },
     { id: "clumpy", icon: "🧱", title: "Dry soil repels water", hint: "Water the baked soil at the start.",
       text: "Hard, dry, clumpy soil is like a baked brick: water beads up and runs off instead of soaking in. Soil with lots of organic matter and crumbly structure drinks up water like a sponge." },
     { id: "fabric", icon: "🟫", title: "Landscape fabric", hint: "Lay landscape fabric.",

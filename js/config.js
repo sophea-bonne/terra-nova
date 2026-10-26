@@ -8,4 +8,6 @@
 */
 window.FarmConfig = {
   dbUrl: "",
+  /* Development switch: every level is open from the start. Turn this off before sharing the game. */
+  dev: true,
 };

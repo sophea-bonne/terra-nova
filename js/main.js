@@ -38,7 +38,7 @@
     P.forEach((p) => (p.moist = 70));
   })();
   const demoFarmer = { x: 860, y: 590, face: "down", walking: false, phase: 0, pose: "none", poseT: 0, carry: false, level: 0 };
-  const demoTractor = { x: Farm.world.park.x, y: Farm.world.park.y, face: "left", wheel: 0, rot: 0 };
+  const demoTractor = { kind: "rototiller", x: Farm.world.park.x, y: Farm.world.park.y, face: "left", wheel: 0, rot: 0 };
 
   /* ---------- weather ---------- */
   const DROPS = Array.from({ length: 150 }, () => ({ x: Math.random(), y: Math.random(), s: 0.7 + Math.random() * 0.6 }));
@@ -113,11 +113,14 @@
       slotsFor(i, pl.crop.type).forEach((slot) => ents.push({ y: slot.y, f: () => Farm.plants.draw(ctx, st, pl, slot, time) }));
     });
     const loc = Farm.LOCATIONS[st.loc];
-    const yard = loc.kit === "rototiller";
+    const yard = loc.scale === "yard";
+    const swiss = loc.scenery === "swiss";
     if (yard) {
       ents.push({ y: W.barn.y, f: () => A.house(ctx, W.barn.x - 40, W.barn.y) });
       ents.push({ y: 612, f: () => A.hedge(ctx, st, 20, 1260, 618) });
       ents.push({ y: 470, f: () => { A.bench(ctx, 1030, 570); A.pot(ctx, 1190, 580, "#f6c443"); A.pot(ctx, 1220, 300, "#e9607a"); A.pot(ctx, 1000, 285, "#e9607a"); } });
+    } else if (swiss) {
+      ents.push({ y: W.barn.y, f: () => A.chalet(ctx, W.barn.x - 10, W.barn.y) });
     } else {
       ents.push({ y: W.barn.y, f: () => A.barn(ctx, W.barn.x, W.barn.y, 1) });
       ents.push({ y: 346, f: () => { A.hay(ctx, 1230, 336); A.hay(ctx, 1198, 350); } });
@@ -130,15 +133,18 @@
       [[72, 440, 0.9], [1216, 590, 1]].forEach(([x, y, k]) => ents.push({ y, f: () => A.eucalyptus(ctx, x, y, k) }));
       [[560, 606, 1], [830, 616, 0.8], [1190, 336, 0.9], [118, 296, 0.7], [960, 560, 0.7]].forEach(([x, y, k]) => ents.push({ y, f: () => A.boulder(ctx, x, y, k) }));
       [[200, 590, 1], [420, 612, 0.9], [980, 360, 0.8], [1150, 560, 1], [40, 380, 0.9], [690, 590, 0.8]].forEach(([x, y, k]) => ents.push({ y, f: () => A.scrub(ctx, x, y, k) }));
+    } else if (swiss) {
+      [[46, 262, 1.1], [1240, 470, 1.2], [34, 600, 1], [1210, 600, 1.1], [76, 440, 0.9], [830, 616, 0.8], [560, 606, 0.7]].forEach(([x, y, k]) => ents.push({ y, f: () => A.spruce(ctx, st, x, y, k) }));
     } else if (!yard) TREES.forEach(([x, y, r]) => ents.push({ y, f: () => A.blobTree(ctx, x, y - r, r, colors.leaf, 0.5) }));
 
     const farmer = live ? Farm.actors.farmer : demoFarmer;
     const tractor = live ? Farm.actors.tractor : demoTractor;
     const mounted = live && farmer.mounted;
-    if (!mounted || yard) {
+    const rototill = tractor.kind === "rototiller";
+    if (!mounted || rototill) {
       const carry = live && !mounted && (st.bucket > 0 || ["water", "fill"].includes(Farm.actors.currentJobType()));
       let f = farmer;
-      if (mounted && yard) {
+      if (mounted && rototill) {
         // walking behind the rototiller, hands on the handlebars
         const dir = tractor.face === "left" ? -1 : 1;
         f = Object.assign({}, farmer, { x: tractor.x - dir * 56, y: tractor.y, face: dir < 0 ? "left" : "right", walking: tractor.driving, phase: time * 9, pose: "none" });
@@ -148,7 +154,9 @@
         f: () => A.farmer(ctx, Object.assign({}, f, { carry, level: live ? st.bucket / st.bucketCap : 0 }), time),
       });
     }
-    ents.push({ y: tractor.y + 1, f: () => (yard ? A.rototiller(ctx, tractor, time) : A.tractor(ctx, tractor, time, mounted)) });
+    if (!live || st.tools.rototiller || st.tools.tractor) {
+      ents.push({ y: tractor.y + 1, f: () => (rototill ? A.rototiller(ctx, tractor, time) : A.tractor(ctx, tractor, time, mounted)) });
+    }
 
     ents.sort((a, b) => a.y - b.y).forEach((e) => e.f());
 

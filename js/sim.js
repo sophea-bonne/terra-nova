@@ -76,7 +76,8 @@
     const loc = Farm.LOCATIONS[locId];
     carry = carry || {};
     return {
-      v: 2, name, loc: locId, day: loc.startDay, money: loc.money,
+      v: 3, name, loc: locId, day: loc.startDay, money: loc.money,
+      tools: { shovel: true, rototiller: false, tractor: false },
       progress: carry.progress || { unlocked: ["sunnyvale"], done: {} },
       inv: { straw: 3, chips: 1, compost: 1, feed: 0, fabric: 0, herbicide: 0 },
       bucketCap: 4, bucket: 0,
@@ -100,6 +101,8 @@
     st.bin = Object.assign({ raw: 0, ready: 0, timer: 0, scraps: 0 }, st.bin);
     st.bucketCap = st.bucketCap || 4;
     st.bucket = clamp(st.bucket || 0, 0, st.bucketCap);
+    /* saves from before the Tools menu keep the machine they were using */
+    st.tools = Object.assign({ shovel: true }, st.tools || { rototiller: true, tractor: !!loc.tractorOK });
     st.lessons = st.lessons || {};
     for (const k in st.lessons) if (!st.lessons[k]) st.lessons[k] = 1; // older saves stored day 0 as "not found"
     st.stats = Object.assign({ harvests: 0, earned: 0 }, st.stats);
@@ -149,7 +152,9 @@
   S.waterLabel = (m) => (m < 12 ? "Very thirsty" : m < 30 ? "Getting dry" : m < 80 ? "Nicely watered" : "Soaked");
   S.tilthLabel = (t) => (t < 30 ? "Hard clods" : t < 60 ? "Lumpy" : "Crumbly");
   S.lifeLabel = (l) => (l < 25 ? "Tired soil" : l < 50 ? "Waking up" : l < 75 ? "Healthy" : "Thriving");
-  S.weedLabel = (w) => (w < 15 ? "Clean" : w < 50 ? "Some weeds" : "Choked by weeds");
+  S.WEED_SEEN = 3; // below this you can't see any weeds on the plot
+  S.weedLabel = (w) => (w < S.WEED_SEEN ? "No weeds" : w < 50 ? "Some weeds" : "Choked by weeds");
+  S.toolPrice = (st, id) => Math.round(Farm.TOOLS[id].price * Farm.LOCATIONS[st.loc].costMul);
   S.mulchLabel = (m) => (m < 5 ? "Bare" : m < 40 ? "Thin mulch" : "Well mulched");
 
   S.harvestValue = function (st, pl) {

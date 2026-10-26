@@ -60,14 +60,16 @@
     } else showPlaces();
   }
 
-  const KIT = { rototiller: "Rototiller (by hand)", tractor: "Tractor", none: "No tractor: too steep" };
+  const kitText = (loc) => (loc.tractorOK ? "Tractor works here" : loc.scale === "yard" ? "Too small for a tractor" : "Too steep for a tractor");
+  const SHOVEL_SVG = `<svg viewBox="0 0 24 24" width="26" height="26"><path d="M12 2v10" stroke="#8a6240" stroke-width="2.4" stroke-linecap="round"/><path d="M9 2h6" stroke="#5a3d20" stroke-width="2.4" stroke-linecap="round"/><path d="M7.5 11h9l-1.2 8.5c-.2 1.2-1.8 2.5-3.3 2.5s-3.1-1.3-3.3-2.5z" fill="#aab4bc" stroke="#6b747c" stroke-width="1.2"/></svg>`;
+  const toolIcon = (id) => (id === "shovel" ? SHOVEL_SVG : Farm.TOOLS[id].icon);
 
   /* the level cards, used by the sign-in screen and the in-game Levels menu */
   function renderLevels(box, progress, pick) {
     box.innerHTML = "";
     Farm.LEVELS.forEach((id) => {
       const loc = Farm.LOCATIONS[id];
-      const open = progress.unlocked.indexOf(id) >= 0;
+      const open = (window.FarmConfig && window.FarmConfig.dev) || progress.unlocked.indexOf(id) >= 0;
       const crops = loc.crops
         .map((c) => {
           const [t, k] = fitTag(loc, c);
@@ -88,7 +90,7 @@
           </div>
           <div class="soillegend"><span>sand</span><span>silt</span><span>clay</span></div>
           <p class="soilnote"><b>${loc.soilName}.</b> ${loc.soilNote}</p>
-          <p class="soilnote">🛠️ ${KIT[loc.kit]} · 🌧️ ${loc.frost ? "rain all year, freezing winters" : id === "farfa" ? "wet winters, dry summers" : "rain only in winter"}</p>
+          <p class="soilnote">🛠️ ${kitText(loc)} · 🌧️ ${loc.frost ? "rain all year, freezing winters" : id === "farfa" ? "wet winters, dry summers" : "rain only in winter"}</p>
           <ul class="crops">${crops}</ul>
           <button class="btn" ${open ? "" : "disabled"}>${open ? (progress.done[id] ? "Play again" : "Start") : "🔒 Finish the level before"}</button>
         </div>`;
@@ -153,7 +155,7 @@
       const gl = g.goals();
       setIf("goals", gl.filter((x) => x.done).length + "/" + gl.length, (v) => ($("#goals-count").textContent = v));
     }
-    const sig = [g.ui.tool, g.ui.seed, g.ui.waterMode, g.ui.soil, s.bucket, s.bucketCap, Math.floor(s.money / 5), JSON.stringify(s.inv), s.bin.ready, s.loc].join("|");
+    const sig = [g.ui.tool, g.ui.seed, g.ui.waterMode, g.ui.soil, s.bucket, s.bucketCap, Math.floor(s.money / 5), JSON.stringify(s.inv), s.bin.ready, s.loc, JSON.stringify(s.tools), g.ui.machine, trayFor].join("|");
     setIf("sig", sig, () => { renderTray(); renderHint(); });
   };
 
@@ -164,7 +166,8 @@
     else if (u.tool === "seed") t = u.seed ? `Sowing ${Farm.CROPS[u.seed].name.toLowerCase()}: click a plot with bare soil, or water unprepared turf and she will dig by hand. Click the seed again to put it away.` : "Pick a seed to sow, or click plots to harvest, weed and clear them.";
     else if (u.tool === "water") t = u.waterMode === "drip" ? "Click a plot to lay a drip line." : `Bucket ${s.bucket}/${s.bucketCap}: click the hose reel to fill up, then click a plot to water it.`;
     else if (u.tool === "soil") t = `${Farm.MATERIALS[u.soil].name}: click a plot to spread it.`;
-    else if (u.tool === "tractor") t = "Click each plot you'd like tilled. Click the tractor again to park it.";
+    else if (u.tool === "tractor") t = `Click each plot you'd like tilled. Click the ${u.machine} again to park it.`;
+    else if (u.tool === "shovel") t = "Shovel: click a watered plot to dig it by hand. It's slow, hard work. Water first if the soil is baked.";
     const h = $("#hint");
     h.textContent = t;
     show(h, !!t);
@@ -172,15 +175,16 @@
 
   /* ================= toolbar and trays ================= */
   let trayOpen = false;
+  let trayFor = "hand"; // which tool the open tray belongs to ("tools" is a menu, not a tool)
   function renderTray() {
     const g = G(), u = g.ui, s = g.state, tray = $("#tray");
-    $$(".tool").forEach((b) => b.classList.toggle("on", b.dataset.tool === u.tool));
-    const open = trayOpen && u.tool !== "hand";
+    $$(".tool").forEach((b) => b.classList.toggle("on", b.dataset.tool === u.tool || (b.dataset.tool === "tools" && (u.tool === "shovel" || u.tool === "tractor"))));
+    const open = trayOpen && trayFor !== "hand";
     show(tray, open);
     if (!open) return;
     const loc = Farm.LOCATIONS[s.loc];
     let html = "";
-    if (u.tool === "seed") {
+    if (trayFor === "seed") {
       html = loc.crops
         .map((id) => {
           const c = Farm.CROPS[id], [t, k] = fitTag(loc, id);
@@ -191,12 +195,12 @@
             <small>${c.blurb}</small></div>`;
         })
         .join("");
-    } else if (u.tool === "water") {
+    } else if (trayFor === "water") {
       const dots = Array.from({ length: s.bucketCap }, (_, i) => `<i class="${i < s.bucket ? "on" : ""}"></i>`).join("");
       html = `<div class="card ${u.waterMode === "bucket" ? "sel" : ""}" data-wm="bucket"><div class="ic">🪣</div><b>Bucket</b><div class="dots">${dots}</div><small>${loc.scale === "ranch" ? "Forty acres from a bucket? It barely wets the ground. Irrigation is the answer." : "Fill at the hose reel on the left, then pour on a plot."}</small></div>
         <div class="card ${u.waterMode === "drip" ? "sel" : ""} ${s.money < Farm.sim.cost(s, Farm.PRICES.drip) ? "poor" : ""}" data-wm="drip"><div class="ic">💧</div><b>Drip line</b><span class="price">${money(Farm.sim.cost(s, Farm.PRICES.drip))} per ${loc.bed}</span><small>Waters a plot by itself, slowly, right at the roots.</small></div>`;
       if (s.bucketCap < 8) html += `<div class="card ${s.money < Farm.sim.cost(s, Farm.PRICES.bigBucket) ? "poor" : ""}" data-bigbucket="1"><div class="ic">🪣</div><b>Bigger bucket</b><span class="price">${money(Farm.sim.cost(s, Farm.PRICES.bigBucket))}</span><small>Eight pours per fill instead of four.</small></div>`;
-    } else if (u.tool === "soil") {
+    } else if (trayFor === "soil") {
       html = Object.values(Farm.MATERIALS)
         .map((m) => `<div class="card ${u.soil === m.id ? "sel" : ""}" data-soil="${m.id}">
             <div class="ic">${m.icon}</div><b>${m.name}</b>
@@ -204,8 +208,22 @@
             <small>${m.blurb}</small>
             <button class="buy ${s.money < Farm.sim.matPrice(s, m.id) ? "poor" : ""}" data-buy="${m.id}">Buy +1 · ${money(Farm.sim.matPrice(s, m.id))}</button></div>`)
         .join("");
-    } else if (u.tool === "tractor") {
-      html = `<div class="card wide"><div class="ic">🚜</div><b>Tractor</b><small>Click each plot you want tilled and the tractor will drive over, one after another.</small><button class="buy" data-park="1">Park the tractor</button></div>`;
+    } else if (trayFor === "tools") {
+      html = Object.values(Farm.TOOLS)
+        .map((t) => {
+          const owned = s.tools[t.id];
+          const unsuited = t.id === "tractor" && !loc.tractorOK;
+          const active = (t.id === "shovel" && u.tool === "shovel") || (t.id !== "shovel" && u.tool === "tractor" && u.machine === t.id);
+          const price = Farm.sim.toolPrice(s, t.id);
+          const action = owned
+            ? ""
+            : `<button class="buy ${s.money < price ? "poor" : ""}" data-buytool="${t.id}">Buy · ${money(price)}</button>`;
+          return `<div class="card ${active ? "sel" : ""} ${unsuited ? "poor" : ""}" data-tool-card="${t.id}">
+            <div class="ic">${toolIcon(t.id)}</div><b>${t.name}</b>
+            <span class="price">${owned ? "You own it" : "Not owned"}${unsuited ? " · can't use it here" : ""}</span>
+            <small>${unsuited ? loc.tractorWhy : t.blurb}</small>${action}</div>`;
+        })
+        .join("");
     }
     tray.innerHTML = html;
     $$("[data-seed]", tray).forEach((c) => (c.onclick = () => { g.ui.seed = g.ui.seed === c.dataset.seed ? null : c.dataset.seed; Farm.sound.blip(500, 0.06, "triangle", 0.04); }));
@@ -213,16 +231,22 @@
     $$("[data-soil]", tray).forEach((c) => (c.onclick = () => { g.ui.soil = c.dataset.soil; }));
     $$("[data-buy]", tray).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); g.buy(b.dataset.buy); }));
     $$("[data-bigbucket]", tray).forEach((c) => (c.onclick = () => g.buyBucket()));
-    $$("[data-park]", tray).forEach((b) => (b.onclick = () => g.setTool("hand")));
+    $$("[data-tool-card]", tray).forEach((c) => (c.onclick = () => (s.tools[c.dataset.toolCard] ? g.selectImplement(c.dataset.toolCard) : g.buyTool(c.dataset.toolCard))));
+    $$("[data-buytool]", tray).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); g.buyTool(b.dataset.buytool); }));
   }
 
   function bindToolbar() {
     $$(".tool").forEach((b) => {
       b.onclick = () => {
         const t = b.dataset.tool, g = G();
-        if (g.ui.tool === t && t !== "hand") trayOpen = !trayOpen;
-        else trayOpen = t !== "hand" && t !== "tractor";
-        g.setTool(t);
+        if (t === "tools") {
+          trayOpen = !(trayOpen && trayFor === "tools");
+          trayFor = "tools";
+        } else {
+          trayOpen = g.ui.tool === t && trayFor === t && t !== "hand" ? !trayOpen : t !== "hand";
+          trayFor = t;
+          g.setTool(t);
+        }
         lastSig.sig = null;
         renderTray(); renderHint();
       };
@@ -233,9 +257,15 @@
     Farm.on("inventory", () => { lastSig.sig = null; });
     document.addEventListener("keydown", (e) => {
       if (!G().state || e.target.tagName === "INPUT") return;
-      const map = { 1: "hand", 2: "seed", 3: "water", 4: "soil", 5: "tractor" };
-      if (map[e.key]) { trayOpen = map[e.key] !== "hand" && map[e.key] !== "tractor"; G().setTool(map[e.key]); lastSig.sig = null; }
-      else if (e.key === "Escape") { trayOpen = false; G().setTool("hand"); closeModal(); lastSig.sig = null; }
+      const map = { 1: "hand", 2: "seed", 3: "water", 4: "soil", 5: "tools" };
+      if (map[e.key]) {
+        const t = map[e.key];
+        trayOpen = t !== "hand";
+        trayFor = t;
+        if (t !== "tools") G().setTool(t);
+        lastSig.sig = null;
+      }
+      else if (e.key === "Escape") { trayOpen = false; trayFor = "hand"; G().setTool("hand"); closeModal(); lastSig.sig = null; }
       else if (e.key === " ") { e.preventDefault(); G().setSpeed(G().ui.speed === 0 ? 1 : 0); }
     });
   }
@@ -453,12 +483,8 @@
       ["#hud", "#toolbar"].forEach((q) => show($(q), true));
       const L = Farm.LOCATIONS[s.loc];
       $("#hud-name").innerHTML = `<i class="dot device"></i>${esc(s.name)} · Level ${L.level}: ${L.short}`;
-      const tb = $("[data-tool=tractor]");
-      tb.innerHTML = L.kit === "rototiller" ? "<span>⚙️</span><em>Rototiller</em>" : "<span>🚜</span><em>Tractor</em>";
-      tb.classList.toggle("blocked", L.kit === "none");
-      tb.title = L.kit === "none" ? "Too steep for a tractor here" : "";
-      $("#notes-count").textContent = Object.keys(s.lessons).length;
       trayOpen = false;
+      trayFor = "hand";
       lastSig = {};
       $$("#speed button").forEach((b) => b.classList.toggle("on", +b.dataset.speed === 1));
       G().save();
@@ -466,7 +492,7 @@
       if (!s.lessons.alive) runIntro();
       else if (s.day - loc.startDay < 3) {
         Farm.toast(loc.intro);
-        if (loc.kit === "none") Farm.toast("Try mulch, compost or weed control from the Soil care menu.");
+        if (!loc.tractorOK && loc.scale === "ranch") Farm.toast("Try mulch, compost or weed control from the Soil care menu.");
       }
       else Farm.toast(`Welcome back, ${s.name}! Your farm kept all its progress.`);
     });

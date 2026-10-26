@@ -99,7 +99,7 @@
 
   /* ================= the farmer ================= */
   const farmer = (Act.farmer = { x: 1040, y: 396, face: "down", walking: false, phase: 0, pose: "none", poseT: 0, mounted: false, cur: null, queue: [] });
-  const tractor = (Act.tractor = { x: W.park.x, y: W.park.y, face: "left", wheel: 0, rot: 0, driving: false, tilling: false, queue: [], cur: null, parking: false });
+  const tractor = (Act.tractor = { kind: "rototiller", x: W.park.x, y: W.park.y, face: "left", wheel: 0, rot: 0, driving: false, tilling: false, queue: [], cur: null, parking: false });
 
   Act.reset = function () {
     Object.assign(farmer, { x: 1040, y: 396, face: "down", walking: false, pose: "none", mounted: false, cur: null, queue: [] });
@@ -240,7 +240,7 @@
 
   J.weed = {
     pose: "weed", face: "up", dur: 1.9, stand: plotStand,
-    check(j) { return st().plots[j.plot].weeds < 8 ? "No weeds to pull here." : null; },
+    check(j) { return st().plots[j.plot].weeds < Farm.sim.WEED_SEEN ? "No weeds to pull here." : null; },
     fx(j, p, dt) {
       j.acc = (j.acc || 0) + dt;
       if (j.acc > 0.28) {
@@ -413,6 +413,38 @@
       fx.spark(farmer.x, farmer.y - 40);
       Farm.lesson("drip");
       Farm.toast("💧 Drip line installed. This plot now waters itself.");
+    },
+  };
+
+  /* digging a whole bed by hand with the shovel: slow, hard on the back, kind to the soil */
+  J.dig = {
+    pose: "weed", face: "up",
+    dur: (j) => 7 * labor() * (st().plots[j.plot].tilth < 30 ? 1.5 : 1),
+    stand: plotStand,
+    check(j) {
+      const s = st(), pl = s.plots[j.plot];
+      if (pl.crop) return "Harvest or clear the crop before digging.";
+      if (Farm.sim.frozen(s)) return "The ground is frozen solid.";
+      if (pl.smothering) return "The mulch is already working on this one.";
+      if (pl.moist < 15) { Farm.lesson("clumpy"); return "Too hard and dry to dig. Water it first."; }
+      if (pl.prep !== "grass" && pl.tilth >= 60) return "This bed is already loose and crumbly.";
+      return null;
+    },
+    fx(j, p, dt) {
+      j.acc = (j.acc || 0) + dt;
+      if (j.acc > 0.25) { j.acc = 0; fx.dust(farmer.x + (Math.random() - 0.5) * 60, farmer.y - 12, 3, "#8a6a42"); }
+    },
+    done(j) {
+      const s = st(), pl = s.plots[j.plot];
+      pl.prep = "bare";
+      pl.till = true;
+      pl.tillAmt = 1;
+      pl.weeds = 0;
+      pl.mulch *= 0.3;
+      pl.life = Math.max(0, pl.life - 6);
+      pl.tilth = Math.max(pl.tilth, 70);
+      Farm.lesson("shovel");
+      Farm.sound.blip(170, 0.2, "triangle", 0.05);
     },
   };
 
@@ -599,10 +631,9 @@
   }
 
   Act.tillCheck = function (plotIdx) {
-    const s = st(), pl = s.plots[plotIdx], loc = Farm.LOCATIONS[s.loc];
-    if (loc.kit === "none") { Farm.lesson("steep"); return "These slopes are far too steep for a tractor. It would tip over."; }
+    const s = st(), pl = s.plots[plotIdx];
     if (pl.crop) return "Harvest or clear the crop before tilling.";
-    if (loc.kit === "rototiller" && pl.moist < 15) { Farm.lesson("clumpy"); return "The soil is baked rock-hard. The rototiller just bounces off. Water this bed first."; }
+    if (tractor.kind === "rototiller" && pl.moist < 15) { Farm.lesson("clumpy"); return "The soil is baked rock-hard. The rototiller just bounces off. Water this bed first."; }
     if (Farm.sim.frozen(s)) return "The ground is frozen. The tractor can't till it.";
     if (pl.smothering) return "The mulch is already working on this one.";
     return null;
@@ -667,7 +698,7 @@
     if (tillingNow) {
       T.tilling = true;
       pl.till = true;
-      const sp = speeds().till * (Farm.LOCATIONS[st().loc].kit === "rototiller" ? 0.5 + 0.5 * (pl.tilth / 100) : 1);
+      const sp = speeds().till * (tractor.kind === "rototiller" ? 0.5 + 0.5 * (pl.tilth / 100) : 1);
       const step = Math.min(d, sp * dt);
       c.tilled += step;
       pl.tillAmt = clamp(c.tilled / c.total, 0, 1);
@@ -678,7 +709,10 @@
   }
 
   /* the tractor is quick; a hand-pushed rototiller is not */
-  const speeds = () => (Farm.LOCATIONS[st().loc].kit === "rototiller" ? { free: 800, till: 600 } : { free: 900, till: 700 });
+  const speeds = () => {
+    const slow = 1 + (labor() - 1) * 0.5; // a walk-behind tiller on a huge field is a slog
+    return tractor.kind === "rototiller" ? { free: 150 / slow, till: 130 / slow } : { free: 900, till: 700 }; // the rototiller is pushed at a walking pace
+  };
 
   function drive(dt, dx, dy, d, speed) {
     const T = tractor;
@@ -701,7 +735,7 @@
     pl.smother = 0;
     pl.weeds = 0;
     pl.mulch = 0;
-    pl.life = Math.max(0, pl.life - (Farm.LOCATIONS[s.loc].kit === "rototiller" ? 12 : 18));
+    pl.life = Math.max(0, pl.life - (tractor.kind === "rototiller" ? 12 : 18));
     pl.fert = Math.max(0, pl.fert - 3);
     pl.tilth = Math.max(pl.tilth, 80); // loose and fluffy... for now
     pl.noWeeds = 0;
