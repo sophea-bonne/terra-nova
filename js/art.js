@@ -874,11 +874,9 @@
     }
     /* growth / progress */
     const gx = r.x + 95 * k, gw = 104 * k;
-    if (pl.crop && !pl.crop.dead && pl.weeds >= 50) {
-      pill(ctx, gx, y, gw, iconSprout, 0, "#d9772b", "Weeds!", Math.sin(time * 6) > 0);
-    } else if (pl.crop && !pl.crop.dead) {
-      const f = S.progress(pl);
-      pill(ctx, gx, y, gw, iconSprout, f, ripe ? "#e5a91d" : "#5fa83a", ripe ? "Ready!" : null, ripe && Math.sin(time * 5) > 0);
+    if (pl.crop && !pl.crop.dead) {
+      const f = S.progress(pl), choked = pl.weeds >= 50;
+      pill(ctx, gx, y, gw, iconSprout, f, ripe ? "#e5a91d" : choked ? "#d9772b" : "#5fa83a", ripe ? "Ready!" : null, (ripe || choked) && Math.sin(time * 5) > 0);
     } else if (pl.crop && pl.crop.dead) {
       pill(ctx, gx, y, gw, iconSprout, 0, "#a08060", "Withered");
     } else if (pl.smothering) {
@@ -916,7 +914,7 @@
     /* weeds warning */
     if (pl.weeds > 35) {
       const stopped = pl.weeds >= 50 && pl.crop && !pl.crop.dead;
-      const text = stopped ? "Uh oh! Weeds! Growth stopped" : "Uh oh! Weeds!";
+      const text = stopped ? `Uh oh! Weeds: growth −${Math.round(Farm.sim.weedLoss(pl.weeds) * 100)}%` : "Uh oh! Weeds!";
       ctx.font = "bold 13px 'Trebuchet MS', sans-serif";
       const bw = ctx.measureText(text).width + 22, bh = 28;
       const bx = r.x + r.w / 2 - bw / 2, by = r.y + 6 + Math.sin(time * 5) * 2.5;

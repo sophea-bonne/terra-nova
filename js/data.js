@@ -17,6 +17,7 @@
   Farm.LOCATIONS = {
     sunnyvale: {
       id: "sunnyvale", level: 1,
+      climate: { mean: 15.5, amp: 5, drop: 4, sigma: 1.8 }, // Jan ~10.5°C, Jul ~20.5°C
       name: "Sunnyvale back yard", short: "Sunnyvale", place: "Sunnyvale, California", scale: "yard", bed: "bed",
       tag: "A small back yard. Everything is done by hand.",
       intro: "It's the end of a long, dry summer. The back yard soil is baked into hard clumps and thirsty. It's too hard to dig by hand at first. You only have a shovel for now: buy a rototiller from the Tools menu, or build the soil up with compost and mulch.",
@@ -26,12 +27,13 @@
       fert: 58, life: 28, tilth: 12, moist: 4, heat: 1.0, frost: false, dryGrass: true, wind: 0.6, hills: false,
       tractorOK: false, tractorWhy: "A back yard is far too small for a tractor.", costMul: 1, valueMul: 1, money: 260, startDay: 680, labor: 1, pour: 48,
       rain: [0, 0, 0, 1.6],
-      fit: { wheat: 1.0, cannabis: 1.0, avocado: 0.8, citrus: 1.05, apple: 1.0, olive: 1.0 },
+      fit: { wheat: 1, cannabis: 1, avocado: 0.85, citrus: 1, apple: 1, olive: 1 },
       soilColor: [112, 84, 62],
       hero: ["#c8ecff", "#b5d98a", "#7f9a5f"],
     },
     rainbow: {
       id: "rainbow", level: 2,
+      climate: { mean: 17.4, amp: 4.6, drop: 5, sigma: 2 }, // Jan ~12.8°C, Jul ~22°C
       name: "Rainbow, 40 acres", short: "Rainbow", place: "Rainbow, California", scale: "ranch", bed: "field",
       tag: "Forty hilly acres of sand. Not much grows here.",
       intro: "Forty acres of sandy granite hills. Water drains straight through, nothing holds nutrients, and the slopes are far too steep for a tractor. Every field is about six acres, so spreading anything by hand takes real labor.",
@@ -41,27 +43,29 @@
       fert: 14, life: 10, tilth: 60, moist: 3, heat: 1.2, frost: false, dryGrass: true, wind: 2.4, hills: true,
       tractorOK: false, tractorWhy: "These slopes are far too steep for a tractor. It would tip over.", costMul: 5, valueMul: 5, money: 2200, startDay: 680, labor: 4.5, pour: 32,
       rain: [0, 0, 0, 1.0],
-      fit: { wheat: 0.75, cannabis: 0.9, avocado: 1.1, citrus: 1.0, apple: 0.7, olive: 1.0 },
+      fit: { wheat: 1, cannabis: 1, avocado: 1, citrus: 1, apple: 1, olive: 1 },
       soilColor: [214, 178, 128],
       hero: ["#ffe9a8", "#e6c58a", "#b98d55"],
     },
     geneva: {
       id: "geneva", level: 3,
+      climate: { mean: 10.8, amp: 9.2, drop: 3.5, sigma: 4 }, // Jan ~1.5°C, Jul ~20°C, cold snaps
       name: "Geneva, Switzerland", short: "Geneva", place: "Geneva, Switzerland", scale: "farm", bed: "field",
       tag: "Balanced loam by the lake. It rains all year and winter freezes the ground.",
-      intro: "Good loam and plenty of rain in every season, but cold. Winter freezes the ground and kills anything tender.",
+      intro: "Good loam and plenty of rain in every season, but cold. Winter freezes the ground and kills anything tender, like avocados.",
       sand: 32, silt: 43, clay: 25,
       soilName: "Glacial moraine loam",
       soilNote: "A near-perfect mix of sand, silt and clay with good crumb structure. Cold winters slow everything down and freeze the soil.",
       fert: 66, life: 50, tilth: 60, moist: 40, heat: 0.8, frost: true, dryGrass: false, wind: 1, hills: false,
       tractorOK: true, scenery: "swiss", costMul: 2, valueMul: 2, money: 1500, startDay: 0, labor: 1.5, pour: 40,
       rain: [1, 1, 1, 1],
-      fit: { wheat: 1.1, cannabis: 0.7, avocado: 0.4, citrus: 0.5, apple: 1.15, olive: 0.6 },
+      fit: { wheat: 1, cannabis: 1, avocado: 1, citrus: 1, apple: 1, olive: 1 },
       soilColor: [128, 98, 70],
       hero: ["#d6e6f2", "#bcd8a0", "#7c9a6e"],
     },
     farfa: {
       id: "farfa", level: 4,
+      climate: { mean: 15, amp: 9, drop: 6, sigma: 3 }, // Jan ~6°C, Jul ~24°C
       name: "Farfa, Italy", short: "Farfa", place: "Farfa, Italy", scale: "farm", bed: "field",
       tag: "Clay-loam terraces under an old abbey.",
       intro: "Wheat and olives have grown here for over a thousand years. Wet winters, dry summers, and clay that cracks in the heat.",
@@ -71,7 +75,7 @@
       fert: 52, life: 40, tilth: 50, moist: 30, heat: 1.1, frost: false, dryGrass: true, wind: 1, hills: false,
       tractorOK: true, costMul: 2, valueMul: 2, money: 1500, startDay: 0, labor: 1.5, pour: 40,
       rain: [0.8, 0.2, 1, 1.2],
-      fit: { wheat: 1.1, cannabis: 0.8, avocado: 0.85, citrus: 1.0, apple: 0.85, olive: 1.15 },
+      fit: { wheat: 1, cannabis: 1, avocado: 1, citrus: 1, apple: 1, olive: 1 },
       soilColor: [160, 112, 80],
       hero: ["#ffe6c6", "#d4e1a7", "#a58a55"],
     },
@@ -100,41 +104,43 @@
     ],
   };
 
-  /* season[] = how well the crop grows in spring, summer, autumn, winter */
+  /* temp = [coldest it grows, start of ideal, end of ideal, hottest it grows] in °C of daily mean temperature
+     p    = share of the soil's available water the plant can use before it starts to struggle (FAO-56 table 22)
+     killTemp = overnight low that kills it (young trees are hurt 2° earlier) */
   Farm.CROPS = {
     wheat: {
       id: "wheat", name: "Wheat", icon: "🌾", kind: "annual", cost: 12, value: 120,
-      days: 85, season: [1, 0.9, 0.7, 0.2], hunger: 0.05,
+      days: 85, temp: [3, 18, 22, 32], p: 0.55, killTemp: -18, hunger: 0.05,
       speed: "Quick", grid: [5, 3],
       blurb: "An annual: harvest it and the field is empty again. Cheap, quick, and the leftover straw makes free mulch.",
     },
     cannabis: {
       id: "cannabis", name: "Cannabis (6 plants)", icon: "🌿", kind: "annual", cost: 45, value: 380,
-      days: 95, season: [0.8, 1.2, 0.6, 0], hunger: 0.07, frostDie: true,
+      days: 95, temp: [8, 21, 28, 36], p: 0.4, killTemp: -3, hunger: 0.07, frostDie: true,
       speed: "Summer only", grid: [3, 2],
-      blurb: "Legal to grow at home in California (six plants per household). Loves summer, dies at the first frost.",
+      blurb: "Legal to grow at home in California (six plants per household). Loves warm weather; as an annual it dies back when winter comes.",
     },
     avocado: {
       id: "avocado", name: "Avocado trees", icon: "🥑", kind: "tree", tender: true, species: "avocado", cost: 220, value: 420,
-      matureDays: 200, fruitDays: 140, season: [1, 1, 0.8, 0.4], hunger: 0.03,
+      matureDays: 200, fruitDays: 140, temp: [10, 20, 26, 35], p: 0.7, killTemp: -2, hunger: 0.03,
       speed: "Years", grid: [2, 1],
-      blurb: "A slow investment: well over a year of growing before the first fruit. Frost kills them.",
+      blurb: "A slow investment: well over a year of growing before the first fruit. A freeze kills them.",
     },
     citrus: {
       id: "citrus", name: "Orange trees", icon: "🍊", kind: "tree", tender: true, species: "citrus", cost: 200, value: 360,
-      matureDays: 190, fruitDays: 130, season: [1, 1, 0.9, 0.5], hunger: 0.03,
+      matureDays: 190, fruitDays: 130, temp: [12, 22, 30, 38], p: 0.5, killTemp: -3, hunger: 0.03,
       speed: "Years", grid: [2, 1],
-      blurb: "Evergreen and generous, with roots near the surface that love mulch. Frost kills them.",
+      blurb: "Evergreen and generous, with roots near the surface that love mulch. A freeze kills them.",
     },
     apple: {
       id: "apple", name: "Apple trees", icon: "🍎", kind: "tree", species: "apple", cost: 180, value: 330,
-      matureDays: 180, fruitDays: 130, season: [1, 1, 0.8, 0.05], hunger: 0.03,
+      matureDays: 180, fruitDays: 130, temp: [4, 18, 24, 32], p: 0.5, killTemp: -30, hunger: 0.03,
       speed: "Years", grid: [2, 1],
       blurb: "Blossoms in spring, fruit by autumn, bare in winter. Hardy enough for cold winters.",
     },
     olive: {
       id: "olive", name: "Olive trees", icon: "🫒", kind: "tree", species: "olive", cost: 170, value: 340,
-      matureDays: 210, fruitDays: 150, season: [0.9, 1, 0.8, 0.4], hunger: 0.02,
+      matureDays: 210, fruitDays: 150, temp: [5, 20, 30, 40], p: 0.65, killTemp: -9, hunger: 0.02,
       speed: "Years", grid: [2, 1],
       blurb: "Tough and drought-tolerant. A tree that can outlive its farmer by centuries.",
     },

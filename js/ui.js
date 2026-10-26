@@ -13,9 +13,10 @@
   let playerName = "";
 
   function fitTag(loc, id) {
-    if (Farm.CROPS[id].tender && loc.frost) return ["Dies in winter", "meh"];
-    const f = loc.fit[id];
-    return f >= 1.1 ? ["Thrives here", "good"] : f >= 0.95 ? ["Does well", "ok"] : ["Tricky here", "meh"];
+    const c = Farm.sim.climateFit(loc.id, id);
+    if (c.dies) return ["Freezes kill it", "meh"];
+    const g = c.growth * (loc.fit[id] || 1);
+    return g >= 0.7 ? ["Thrives here", "good"] : g >= 0.5 ? ["Does well", "ok"] : ["Tricky here", "meh"];
   }
 
   function showStep(which) {
@@ -148,6 +149,7 @@
       document.body.dataset.season = v;
     });
     setIf("day", S.dayOfSeason(s), (v) => ($("#cal-day").textContent = v));
+    setIf("temp", Math.round(S.temp(s)), (v) => ($("#cal-temp").textContent = v));
     setIf("year", S.year(s), (v) => ($("#cal-year").textContent = v));
     $("#cal-marker").style.left = S.yearProg(s) * 100 + "%";
     if (!lastSig.gt || performance.now() - lastSig.gt > 1000) {
@@ -271,6 +273,15 @@
   }
 
   /* ================= tooltips ================= */
+  /* temperature and thirst, each as "how fast is it growing" */
+  function tempLine(pl) {
+    if (!pl.crop || pl.crop.dead) return "";
+    const S = Farm.sim, def = Farm.CROPS[pl.crop.type], T = S.temp(G().state);
+    const f = S.tempFactor(def, T);
+    const why = f >= 0.95 ? "ideal weather" : T < def.temp[1] ? (f < 0.05 ? "too cold, not growing" : "cool, slower growth") : f < 0.05 ? "too hot, not growing" : "hot, slower growth";
+    const ks = S.waterKs(def, pl.moist);
+    return `<li>🌡️ ${Math.round(T)}°C: ${why}</li>${ks < 0.95 ? `<li>💧 Water stress: growth ×${ks.toFixed(2)}</li>` : ""}`;
+  }
   UI.plotTip = function (i) {
     const s = G().state, pl = s.plots[i], S = Farm.sim, loc = Farm.LOCATIONS[s.loc];
     let title, extra = "";
@@ -287,11 +298,12 @@
     else { title = "🟫 Bare soil"; extra = "Ready for seeds."; }
     return `<b>${title}</b><br>${extra}<ul>
       <li>💧 ${S.waterLabel(pl.moist)}</li>
+      ${tempLine(pl)}
       <li>🪱 ${S.lifeLabel(pl.life)}</li>
       <li>🌱 Fertility ${pl.fert < 30 ? "low" : pl.fert < 60 ? "medium" : "high"}</li>
       <li>🧱 ${pl.tilth < 30 ? "Hard clods: water runs off" : pl.tilth < 60 ? "Lumpy: soaks up water slowly" : "Crumbly: soft, soaks up water"}</li>
       <li>🍂 ${pl.mulch < 5 ? "No mulch: soil is uncovered" : (pl.mulch < 40 ? "Thin mulch layer" : "Thick mulch layer") + " (" + Math.round(pl.mulch) + "%)"}</li>
-      <li>${pl.weeds < 15 ? "✅ No weeds" : pl.weeds < 50 ? "⚠️ Some weeds" : "⚠️ Choked by weeds: nothing grows"}</li>${pl.fabric ? "<li>🟫 Landscape fabric</li>" : ""}${pl.noWeeds > 0 ? "<li>☠️ Sprayed</li>" : ""}${pl.drip ? "<li>💧 Drip line</li>" : ""}</ul>`;
+      <li>${pl.weeds < S.WEED_SEEN ? "✅ No weeds" : pl.weeds < 50 ? "⚠️ Some weeds" : "⚠️ Choked by weeds"}${pl.crop && pl.weeds >= S.WEED_SEEN ? ` (growth −${Math.round(S.weedLoss(pl.weeds) * 100)}%)` : ""}</li>${pl.fabric ? "<li>🟫 Landscape fabric</li>" : ""}${pl.noWeeds > 0 ? "<li>☠️ Sprayed</li>" : ""}${pl.drip ? "<li>💧 Drip line</li>" : ""}</ul>`;
   };
   let tipTimer = 0;
   UI.showTip = function (html, x, y, ms) {
@@ -531,7 +543,8 @@
       if (pl.crop && !pl.crop.dead) Farm.toast(`💧 Plot ${i + 1} is very thirsty. Fill your bucket at the hose and water it soon.`);
     });
     Farm.on("weedAlert", (i) => {
-      Farm.toast(`Uh oh! Weeds have taken over plot ${i + 1}. Nothing will grow there until you pull them. Click the plot.`);
+      const pl = G().state.plots[i];
+      Farm.toast(`Uh oh! Weeds are slowing the crop on plot ${i + 1} by about ${Math.round(Farm.sim.weedLoss(pl.weeds) * 100)}%. Click the plot to pull them.`);
       Farm.sound.blip(220, 0.3, "sawtooth", 0.03, 150);
     });
     Farm.on("wind", () => {

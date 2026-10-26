@@ -129,6 +129,43 @@
   S.frozen = (st) => Farm.LOCATIONS[st.loc].frost && S.season(st) === 3;
   /* wet winter soil in a mild climate is soft enough to sow straight into the turf */
   S.softSoil = (st, pl) => S.season(st) === 3 && !Farm.LOCATIONS[st.loc].frost && pl.moist >= 30;
+  /* ---------- climate: daily mean temperature through the year (°C) ---------- */
+  S.tempAt = (loc, tick) => {
+    const doy = (tick / Farm.TICKS_PER_DAY + 59) % 365; // the game year starts on 1 March
+    return loc.climate.mean + loc.climate.amp * Math.sin((2 * Math.PI * (doy - 110)) / 365);
+  };
+  S.temp = (st) => S.tempAt(Farm.LOCATIONS[st.loc], st.day);
+  /* growth speed vs temperature: 0 outside [min, max], 1 in the ideal band, straight lines between */
+  S.tempFactor = (def, T) => {
+    const [a, b, c, d] = def.temp;
+    if (T <= a || T >= d) return 0;
+    return T < b ? (T - a) / (b - a) : T <= c ? 1 : (d - T) / (d - c);
+  };
+  /* FAO-56 water-stress coefficient: no stress until the soil has lost a fraction p of its available water */
+  S.waterKs = (def, m) => {
+    const wet = 100 * (1 - def.p);
+    return m >= wet ? 1 : Math.max(0, m / wet);
+  };
+  /* weeds cost a crop yield along a hyperbola (Cousens): 0.8% per 1% weed cover at first, levelling off at 70% */
+  S.weedLoss = (w) => (0.8 * w) / (1 + (0.8 * w) / 70) / 100;
+  /* how well a crop suits a place: the year's average growth speed, and whether freezes kill it */
+  S.climateFit = (locId, cropId) => {
+    const loc = Farm.LOCATIONS[locId], def = Farm.CROPS[cropId];
+    let sum = 0, risk = 0;
+    for (let d = 0; d < 365; d += 5) {
+      const T = S.tempAt(loc, d * Farm.TICKS_PER_DAY);
+      sum += S.tempFactor(def, T);
+      const z = (def.killTemp + 2 - (T - loc.climate.drop)) / loc.climate.sigma; // young trees: 2° less hardy
+      risk += 0.5 * (1 + erf(z / Math.SQRT2)) * 5;
+    }
+    return { growth: sum / 73, dies: !def.frostDie && risk > 0.6 };
+  };
+  function erf(x) { // good enough for a climate score
+    const t = 1 / (1 + 0.3275911 * Math.abs(x));
+    const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+    return x >= 0 ? y : -y;
+  }
+  const randn = () => Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(2 * Math.PI * Math.random());
   S.cost = (st, base) => Math.round(base * Farm.LOCATIONS[st.loc].costMul);
   S.matPrice = (st, kind) => S.cost(st, Farm.MATERIALS[kind].price);
   S.avgLife = (st) => st.plots.reduce((a, p) => a + p.life, 0) / st.plots.length;
@@ -181,8 +218,10 @@
     const frozen = S.frozen(st);
 
     /* a new day begins: weather rolls the dice */
+    curT = S.temp(st);
     for (let d = prevDay + 1; d <= Math.floor(st.day); d++) {
       const w = st.weather;
+      if (d % Farm.TICKS_PER_DAY === 0) S.nightFreeze(st, loc);
       if (!w.raining && Math.random() < RAIN_CHANCE * loc.rain[s]) {
         w.raining = true;
         w.left = 5 + Math.random() * 6;
@@ -223,6 +262,24 @@
     }
 
     st.plots.forEach((pl, i) => S.updatePlot(st, pl, i, dt, s, loc, frozen));
+  };
+
+  let curT = 15; // today's mean temperature, set once per update
+  /* once per game day: how cold does tonight get? */
+  S.nightFreeze = function (st, loc) {
+    const T = S.temp(st);
+    const low = T - loc.climate.drop + randn() * loc.climate.sigma;
+    st.plots.forEach((pl) => {
+      const c = pl.crop;
+      if (!c || c.dead) return;
+      const def = Farm.CROPS[c.type];
+      const hardy = def.killTemp + (def.kind === "tree" && c.age < 0.5 ? 2 : 0);
+      if (low < hardy) {
+        c.dead = true;
+        Farm.toast(`🥶 A hard frost (${Math.round(low)}°C overnight) killed your ${def.name.toLowerCase()}. Click to clear.`);
+        Farm.lesson("tender");
+      }
+    });
   };
 
   S.updatePlot = function (st, pl, i, dt, s, loc, frozen) {
@@ -289,20 +346,16 @@
 
     /* --- the crop --- */
     if (!crop || crop.dead) return;
-    if ((def.frostDie && s === 3) || (def.tender && loc.frost && s === 3)) {
+    if (def.frostDie && s === 3) {
       crop.dead = true;
-      if (def.tender) {
-        Farm.toast("🥀 A freeze killed your " + def.name.toLowerCase() + ". Click to clear.");
-        Farm.lesson("tender");
-      } else Farm.toast("🥀 " + def.name + " is an annual: it dies back when winter comes. Click to clear.");
+      Farm.toast("🥀 " + def.name + " is an annual: it dies back when winter comes. Click to clear.");
       return;
     }
     const fit = loc.fit[def.id] || 0.8;
-    const w = pl.moist >= 30 ? 1 : pl.moist >= 12 ? 0.4 + (0.6 * (pl.moist - 12)) / 18 : 0.1;
+    const w = S.waterKs(def, pl.moist);
     const soil = 0.5 + 0.55 * clamp((pl.fert * 0.45 + pl.life * 0.35 + pl.tilth * 0.2) / 100, 0, 1);
-    let sm = def.season[s];
-    if (!loc.frost && s === 3 && !def.frostDie) sm = Math.max(sm, 0.7); // mild winters keep crops growing
-    const weedF = clamp(1 - pl.weeds / 50, 0, 1); // growth halves at 25% weeds and stops completely at 50%
+    const sm = S.tempFactor(def, curT);
+    const weedF = 1 - S.weedLoss(pl.weeds);
     if (pl.weeds >= 50 && !pl.weedAlert) { pl.weedAlert = true; Farm.emit("weedAlert", i); }
     else if (pl.weeds < 20) pl.weedAlert = false;
     const rate = fit * sm * w * soil * weedF * (crop.fed ? 1.3 : 1);
