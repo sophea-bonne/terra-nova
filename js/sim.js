@@ -247,7 +247,7 @@
     /* --- mulch: slowly rots into food for the soil --- */
     if (pl.mulch > 0) {
       const chips = pl.mulchType === "chips";
-      pl.mulch = Math.max(0, pl.mulch - (chips ? 0.18 : 0.5) * dt);
+      pl.mulch = Math.max(0, pl.mulch - (chips ? 0.03 : 0.09) * dt); // straw lasts about 11 minutes, chips about an hour
       pl.life = Math.min(100, pl.life + (chips ? 0.07 : 0.05) * dt);
       pl.fert = Math.min(100, pl.fert + 0.03 * dt);
       pl.tilth = Math.min(100, pl.tilth + 0.05 * dt);

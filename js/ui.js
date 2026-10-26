@@ -161,7 +161,7 @@
     const g = G(), u = g.ui, s = g.state;
     let t = "";
     if (u.tool === "hand") t = "Click anywhere to walk. Click ripe plants to harvest, weedy plots to pull weeds.";
-    else if (u.tool === "seed") t = u.seed ? `Sowing ${Farm.CROPS[u.seed].name.toLowerCase()}: click a plot with bare soil. Click the seed again to put it away.` : "Pick a seed to sow, or click plots to harvest, weed and clear them.";
+    else if (u.tool === "seed") t = u.seed ? `Sowing ${Farm.CROPS[u.seed].name.toLowerCase()}: click a plot with bare soil, or water unprepared turf and she will dig by hand. Click the seed again to put it away.` : "Pick a seed to sow, or click plots to harvest, weed and clear them.";
     else if (u.tool === "water") t = u.waterMode === "drip" ? "Click a plot to lay a drip line." : `Bucket ${s.bucket}/${s.bucketCap}: click the hose reel to fill up, then click a plot to water it.`;
     else if (u.tool === "soil") t = `${Farm.MATERIALS[u.soil].name}: click a plot to spread it.`;
     else if (u.tool === "tractor") t = "Click each plot you'd like tilled. Click the tractor again to park it.";
@@ -253,14 +253,14 @@
       else if (d.kind === "tree") extra = pl.crop.age < 1 ? `Growing up: ${Math.round(pl.crop.age * 100)}%` : `Making fruit: ${Math.round(pl.crop.fruit * 100)}%`;
       else extra = `Growing: ${Math.round(pl.crop.p * 100)}%`;
     } else if (pl.smothering) { title = "🍂 Smothering the grass"; extra = `${Math.round(pl.smother * 100)}% done`; }
-    else if (pl.prep === "grass") { title = "🌿 Grassy patch"; extra = "Prepare it before sowing."; }
+    else if (pl.prep === "grass") { title = "🌿 Grassy patch"; extra = "Prepare it, or water it and dig by hand."; }
     else { title = "🟫 Bare soil"; extra = "Ready for seeds."; }
     return `<b>${title}</b><br>${extra}<ul>
       <li>💧 ${S.waterLabel(pl.moist)}</li>
       <li>🪱 ${S.lifeLabel(pl.life)}</li>
       <li>🌱 Fertility ${pl.fert < 30 ? "low" : pl.fert < 60 ? "medium" : "high"}</li>
       <li>🧱 ${pl.tilth < 30 ? "Hard clods: water runs off" : pl.tilth < 60 ? "Lumpy: soaks up water slowly" : "Crumbly: soft, soaks up water"}</li>
-      <li>🍂 ${pl.mulch < 5 ? "No mulch: soil is uncovered" : pl.mulch < 40 ? "Thin mulch layer" : "Thick mulch layer"}</li>
+      <li>🍂 ${pl.mulch < 5 ? "No mulch: soil is uncovered" : (pl.mulch < 40 ? "Thin mulch layer" : "Thick mulch layer") + " (" + Math.round(pl.mulch) + "%)"}</li>
       <li>${pl.weeds < 15 ? "✅ No weeds" : pl.weeds < 50 ? "⚠️ Some weeds" : "⚠️ Choked by weeds: nothing grows"}</li>${pl.fabric ? "<li>🟫 Landscape fabric</li>" : ""}${pl.noWeeds > 0 ? "<li>☠️ Sprayed</li>" : ""}${pl.drip ? "<li>💧 Drip line</li>" : ""}</ul>`;
   };
   let tipTimer = 0;

@@ -139,23 +139,20 @@
   /* trees can go straight into turf if you're willing to dig each hole by hand (tough work: a full day) */
   const diggingIn = (j) => {
     const pl = st().plots[j.plot];
-    return Farm.CROPS[j.crop].kind === "tree" && pl.prep === "grass" && !Farm.sim.softSoil(st(), pl);
+    return pl.prep === "grass" && !Farm.sim.softSoil(st(), pl);
   };
+  const digDays = (j) => (Farm.CROPS[j.crop].kind === "tree" ? 1 : 2); // a tree is one hole; a bed of seedlings takes longer
   J.plant = {
-    pose: (j) => (diggingIn(j) ? "weed" : "plant"), face: "up", dur: (j) => (diggingIn(j) ? Farm.TICKS_PER_DAY : 2.6), stand: plotStand,
+    pose: (j) => (diggingIn(j) ? "weed" : "plant"), face: "up", dur: (j) => (diggingIn(j) ? Farm.TICKS_PER_DAY * digDays(j) : 2.6), stand: plotStand,
     check(j, early) {
       const s = st(), pl = s.plots[j.plot], def = Farm.CROPS[j.crop];
       if (pl.crop) return "Something is already growing here.";
-      if (pl.prep === "grass" && def.kind === "tree" && !pl.smothering && !(early && pendingTill(j.plot)) && !Farm.sim.softSoil(s, pl)) {
+      if (pl.prep === "grass" && !(early && pendingTill(j.plot)) && !Farm.sim.softSoil(s, pl)) {
         if (Farm.sim.frozen(s)) return "The ground is frozen solid. Wait for spring.";
-        if (pl.moist < 25) return "The ground is rock-hard. Water this spot first, then you can dig a hole by hand.";
+        if (pl.moist < 25) return "The ground is rock-hard. Water this spot first, then you can dig it by hand and plant.";
         if (s.money < cropCost(def)) return `You need ${Farm.money(cropCost(def))} for ${def.name.toLowerCase()}.`;
-        return null; // dig and water: a full day of tough work, but no tilling needed
+        return null; // dig and water: a day or two of tough work by hand, but no tilling needed
       }
-      if (pl.prep === "grass" && !(early && pendingTill(j.plot)) && !Farm.sim.softSoil(s, pl))
-        return pl.smothering
-          ? "The grass under the mulch is still dying back. It takes about a year in summer, so be patient."
-          : "This patch is still turf. Till it, smother it with mulch, or wait for a wet winter when the soil is soft enough to sow into.";
       if (Farm.sim.frozen(s)) return "The ground is frozen solid. Wait for spring.";
       if (s.money < cropCost(def)) return `You need ${Farm.money(cropCost(def))} for ${def.name.toLowerCase()}.`;
       return null;
@@ -504,9 +501,14 @@
       farmer.cur = { job, stage: "walk", tx: job.x, ty: job.y };
       return;
     }
+    /* an empty bucket mid-queue: she walks to the hose, refills, then comes back to this plot */
+    if (job.type === "water" && st().bucket <= 0) {
+      farmer.queue.unshift(job);
+      job = { type: "fill" };
+    }
     const def = J[job.type];
     const err = def.check(job);
-    if (err) { Farm.toast(err); return; }
+    if (err) { if (job.type !== "fill") Farm.toast(err); return; }
     const sp = def.stand(job);
     farmer.cur = { job, stage: "walk", tx: sp.x, ty: sp.y };
   }
